@@ -1,4 +1,5 @@
 import { config } from "@/lib/config";
+import { COUNTRIES, PRODUCTS } from "@/lib/catalog";
 import type {
   BoughtNumber,
   OrderState,
@@ -14,32 +15,13 @@ const BASE = config.herosmsBaseUrl;
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
 
-// Katalog slug -> HeroSMS davlat kodlari (getCountries dan tekshirilgan).
-const COUNTRY: Record<string, string> = {
-  uzbekistan: "40",
-  usa: "187",
-  kazakhstan: "2",
-  ukraine: "1",
-  india: "22",
-  indonesia: "6",
-  philippines: "4",
-  germany: "43",
-  france: "78",
-  poland: "15",
-};
-
-// Katalog slug -> HeroSMS xizmat kodlari.
-const SERVICE: Record<string, string> = {
-  telegram: "tg",
-  whatsapp: "wa",
-  instagram: "ig",
-  google: "go",
-  facebook: "fb",
-  tiktok: "lf",
-  twitter: "tw",
-  viber: "vi",
-  uber: "ub",
-};
+// Katalogdan slug -> HeroSMS kod xaritalari (yagona manba).
+const COUNTRY: Record<string, string> = Object.fromEntries(
+  COUNTRIES.map((c) => [c.slug, c.hero])
+);
+const SERVICE: Record<string, string> = Object.fromEntries(
+  PRODUCTS.map((p) => [p.slug, p.hero])
+);
 
 async function api(
   action: string,
