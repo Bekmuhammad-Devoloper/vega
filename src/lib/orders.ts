@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { provider } from "@/lib/provider";
-import { rubToUzsPrice } from "@/lib/config";
+import { usdToUzsPrice } from "@/lib/config";
 
 export class OrderError extends Error {
   status: number;
@@ -28,7 +28,7 @@ export async function buyNumber(
     throw new OrderError("Bu yo'nalishda hozircha raqam yo'q");
   }
 
-  const estimate = rubToUzsPrice(price.costRub);
+  const estimate = usdToUzsPrice(price.costRub);
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new OrderError("Foydalanuvchi topilmadi", 401);
   if (user.balance < estimate) {
@@ -39,7 +39,7 @@ export async function buyNumber(
 
   // Provayderdan sotib olamiz (tashqi so'rov — tranzaksiyadan tashqarida).
   const bought = await provider.buy(product, country);
-  const finalPrice = rubToUzsPrice(bought.costRub);
+  const finalPrice = usdToUzsPrice(bought.costRub);
 
   try {
     const order = await prisma.$transaction(async (tx) => {

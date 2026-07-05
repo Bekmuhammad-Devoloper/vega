@@ -6,7 +6,7 @@ export interface ProviderPrice {
   product: string;
   country: string;
   operator: string;
-  costRub: number; // provayder narxi (RUB)
+  costRub: number; // provayder narxi (USD — 5sim USD'da qaytaradi)
   count: number; // mavjud raqamlar soni
 }
 

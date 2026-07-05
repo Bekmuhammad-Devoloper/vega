@@ -5,7 +5,8 @@ export const config = {
   // 5sim bloklangan bo'lsa — mirror/proxy manzilini shu yerdan bering.
   fivesimBaseUrl:
     process.env.FIVESIM_BASE_URL?.trim() || "https://5sim.net/v1",
-  rubToUzs: Number(process.env.RUB_TO_UZS) || 150,
+  // 5sim narxni USD'da qaytaradi. 1 USD necha so'm (kurs).
+  usdToUzs: Number(process.env.USD_TO_UZS) || 12000,
   markupPercent: Number(process.env.MARKUP_PERCENT) || 30,
   authSecret:
     process.env.AUTH_SECRET?.trim() || "dev-only-secret-change-me-please",
@@ -40,11 +41,11 @@ export const clickEnabled =
   config.click.merchantId !== "" && config.click.serviceId !== "";
 
 /**
- * Provayderning RUB narxidan foydalanuvchiga ko'rsatiladigan so'm narxini
+ * Provayderning USD narxidan foydalanuvchiga ko'rsatiladigan so'm narxini
  * hisoblaydi: kurs bo'yicha o'giramiz, ustama qo'shamiz va 100 so'mgacha
  * yaxlitlaymiz.
  */
-export function rubToUzsPrice(costRub: number): number {
-  const raw = costRub * config.rubToUzs * (1 + config.markupPercent / 100);
+export function usdToUzsPrice(costUsd: number): number {
+  const raw = costUsd * config.usdToUzs * (1 + config.markupPercent / 100);
   return Math.ceil(raw / 100) * 100;
 }

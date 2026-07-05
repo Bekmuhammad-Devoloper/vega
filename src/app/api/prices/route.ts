@@ -1,5 +1,5 @@
 import { provider } from "@/lib/provider";
-import { rubToUzsPrice } from "@/lib/config";
+import { usdToUzsPrice } from "@/lib/config";
 import { ok, fail } from "@/lib/http";
 
 // GET /api/prices?product=telegram&country=usa
@@ -21,7 +21,7 @@ export async function GET(req: Request) {
     }
     return ok({
       available: true,
-      price: rubToUzsPrice(price.costRub),
+      price: usdToUzsPrice(price.costRub),
       count: price.count,
     });
   } catch (e) {
