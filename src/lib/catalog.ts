@@ -22,15 +22,12 @@ export const PRODUCTS: Product[] = [
   { slug: "tiktok", name: "TikTok", emoji: "🎵" },
   { slug: "twitter", name: "Twitter / X", emoji: "🐦" },
   { slug: "viber", name: "Viber", emoji: "🟣" },
-  { slug: "signal", name: "Signal", emoji: "🔵" },
   { slug: "uber", name: "Uber", emoji: "🚗" },
 ];
 
 export const COUNTRIES: Country[] = [
-  { slug: "russia", name: "Rossiya", flag: "🇷🇺" },
-  { slug: "usa", name: "AQSH", flag: "🇺🇸" },
-  { slug: "england", name: "Angliya", flag: "🇬🇧" },
   { slug: "uzbekistan", name: "O'zbekiston", flag: "🇺🇿" },
+  { slug: "usa", name: "AQSH", flag: "🇺🇸" },
   { slug: "kazakhstan", name: "Qozog'iston", flag: "🇰🇿" },
   { slug: "ukraine", name: "Ukraina", flag: "🇺🇦" },
   { slug: "india", name: "Hindiston", flag: "🇮🇳" },

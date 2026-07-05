@@ -1,9 +1,14 @@
-import { isMockMode } from "@/lib/config";
+import { config } from "@/lib/config";
+import { heroSmsProvider } from "./herosms";
 import { fiveSimProvider } from "./fivesim";
 import { mockProvider } from "./mock";
 import type { SmsProvider } from "./types";
 
-// API kaliti bo'lsa — haqiqiy 5sim, bo'lmasa — demo (mock).
-export const provider: SmsProvider = isMockMode ? mockProvider : fiveSimProvider;
+// Ustuvorlik: HeroSMS (arzon) -> 5sim -> demo (mock).
+export const provider: SmsProvider = config.herosmsApiKey
+  ? heroSmsProvider
+  : config.fivesimApiKey
+    ? fiveSimProvider
+    : mockProvider;
 
 export * from "./types";

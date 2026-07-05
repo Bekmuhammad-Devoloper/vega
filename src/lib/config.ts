@@ -5,7 +5,14 @@ export const config = {
   // 5sim bloklangan bo'lsa — mirror/proxy manzilini shu yerdan bering.
   fivesimBaseUrl:
     process.env.FIVESIM_BASE_URL?.trim() || "https://5sim.net/v1",
-  // 5sim narxni USD'da qaytaradi. 1 USD necha so'm (kurs).
+
+  // HeroSMS (SMS-Activate protokoli) — UZB uchun arzon provayder.
+  herosmsApiKey: process.env.HEROSMS_API_KEY?.trim() || "",
+  herosmsBaseUrl:
+    process.env.HEROSMS_BASE_URL?.trim() ||
+    "https://hero-sms.com/stubs/handler_api.php",
+
+  // Provayder narxni USD'da qaytaradi. 1 USD necha so'm (kurs).
   usdToUzs: Number(process.env.USD_TO_UZS) || 12000,
   markupPercent: Number(process.env.MARKUP_PERCENT) || 30,
   authSecret:
@@ -32,8 +39,9 @@ export const config = {
   appUrl: process.env.APP_URL?.trim() || "http://localhost:3000",
 };
 
-// API kaliti yo'q bo'lsa demo (MOCK) rejimda ishlaymiz.
-export const isMockMode = config.fivesimApiKey === "";
+// Hech qanday provayder kaliti yo'q bo'lsa demo (MOCK) rejimda ishlaymiz.
+export const isMockMode =
+  config.herosmsApiKey === "" && config.fivesimApiKey === "";
 
 export const paymeEnabled =
   config.payme.merchantId !== "" && config.payme.key !== "";
