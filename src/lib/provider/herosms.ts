@@ -73,10 +73,29 @@ export const heroSmsProvider: SmsProvider = {
   async buy(product, country): Promise<BoughtNumber> {
     const c = COUNTRY[country];
     const s = SERVICE[product];
-    if (!c || !s) throw new Error("HeroSMS: bu yo'nalish qo'llab-quvvatlanmaydi");
+    if (!c || !s) throw new Error("Bu yo'nalish qo'llab-quvvatlanmaydi");
 
-    const text = await api("getNumberV2", { service: s, country: c });
-    // Muvaffaqiyatda JSON, xatoda matn: NO_NUMBERS, NO_BALANCE, ...
+    let text: string;
+    try {
+      text = await api("getNumberV2", { service: s, country: c });
+    } catch (e) {
+      // HeroSMS hisobimiz bo'sh bo'lsa 402 qaytaradi (mijoz aybi emas).
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("402")) {
+        throw new Error("Raqam hozircha mavjud emas. Birozdan keyin urinib ko'ring.");
+      }
+      throw e;
+    }
+
+    // Xato satrlari (SMS-Activate uslubi).
+    if (text.includes("NO_NUMBERS")) {
+      throw new Error("Bu yo'nalishda raqam tugagan. Boshqa davlatni tanlang.");
+    }
+    if (text.includes("NO_BALANCE")) {
+      throw new Error("Raqam hozircha mavjud emas. Birozdan keyin urinib ko'ring.");
+    }
+
+    // Muvaffaqiyatda JSON.
     let data: {
       activationId?: number | string;
       phoneNumber?: string;
@@ -85,10 +104,10 @@ export const heroSmsProvider: SmsProvider = {
     try {
       data = JSON.parse(text);
     } catch {
-      throw new Error(`HeroSMS: ${text}`);
+      throw new Error(`Xatolik: ${text}`);
     }
     if (!data.activationId || !data.phoneNumber) {
-      throw new Error(`HeroSMS: ${text}`);
+      throw new Error(`Xatolik: ${text}`);
     }
     return {
       providerId: String(data.activationId),
