@@ -1,0 +1,84 @@
+// Prisma sxemasi — SQLite (MVP). Keyin PostgreSQL'ga o'tkazsa bo'ladi.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Foydalanuvchi. balance — ichki hamyon (so'mda, butun son).
+// role: "USER" | "ADMIN"  (SQLite enum'ni qo'llamaydi, shuning uchun String)
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  name         String?
+  passwordHash String
+  balance      Int           @default(0) // so'm
+  role         String        @default("USER")
+  createdAt    DateTime      @default(now())
+  orders       Order[]
+  transactions Transaction[]
+  payments     Payment[]
+}
+
+// Bitta raqam buyurtmasi (aktivatsiya).
+// status: "PENDING" | "RECEIVED" | "CANCELED" | "TIMEOUT" | "FINISHED" | "BANNED"
+model Order {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  provider     String    @default("5sim")
+  providerId   String // provayderdagi buyurtma ID (masalan 5sim order id)
+  country      String
+  operator     String    @default("any")
+  product      String // xizmat: telegram, whatsapp, ...
+  phone        String
+  costRub      Float     @default(0) // provayderga to'lagan (RUB)
+  price        Int // foydalanuvchidan yechilgan (so'm)
+  status       String    @default("PENDING")
+  smsCode      String?
+  smsText      String?
+  createdAt    DateTime  @default(now())
+  expiresAt    DateTime?
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([providerId])
+}
+
+// Hamyon harakati (audit + balans tarixi).
+// type: "TOPUP" | "PURCHASE" | "REFUND"
+model Transaction {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  type         String
+  amount       Int // ishorali: +to'ldirish, -xarid, +qaytarish (so'm)
+  balanceAfter Int
+  orderId      String?
+  note         String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Balans to'ldirish (to'lov).
+// method: "demo" | "manual" | "payme" | "click"
+// status: "PENDING" | "PAID" | "REJECTED"
+model Payment {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  amount      Int // so'm
+  method      String
+  status      String   @default("PENDING")
+  providerRef String? // provayder tranzaksiya ID / referens
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
