@@ -12,6 +12,11 @@ export const config = {
     process.env.HEROSMS_BASE_URL?.trim() ||
     "https://hero-sms.com/stubs/handler_api.php",
 
+  // SPIDER TG API — real SIM, Telegram uchun ISHLAYDI (asosiy Telegram manbasi).
+  spiderApiKey: process.env.SPIDER_API_KEY?.trim() || "",
+  spiderBaseUrl:
+    process.env.SPIDER_BASE_URL?.trim() || "https://api.spider-service.com",
+
   // Provayder narxni USD'da qaytaradi. 1 USD necha so'm (kurs).
   usdToUzs: Number(process.env.USD_TO_UZS) || 12000,
   markupPercent: Number(process.env.MARKUP_PERCENT) || 30,
@@ -41,7 +46,9 @@ export const config = {
 
 // Hech qanday provayder kaliti yo'q bo'lsa demo (MOCK) rejimda ishlaymiz.
 export const isMockMode =
-  config.herosmsApiKey === "" && config.fivesimApiKey === "";
+  config.spiderApiKey === "" &&
+  config.herosmsApiKey === "" &&
+  config.fivesimApiKey === "";
 
 export const paymeEnabled =
   config.payme.merchantId !== "" && config.payme.key !== "";
