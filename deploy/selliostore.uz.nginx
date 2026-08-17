@@ -1,0 +1,247 @@
+# ═══════════════════════════════════════════════════════════════════
+# Sellio Store — Nginx konfiguratsiyasi
+#
+# Domenlar:
+#   selliostore.uz          → Landing (port 2404)
+#   admin.selliostore.uz    → Admin panel — Next.js (port 2402)
+#   clients.selliostore.uz  → Webapp — Next.js (port 2401)
+#   dev.selliostore.uz      → Super Admin — Next.js (port 2403)
+#
+# Backend API ichki (127.0.0.1:2400), 4 subdomain ham `/api/*` orqali ulanadi
+# ═══════════════════════════════════════════════════════════════════
+
+# ─── upstreams ──────────────────────────────────────────────
+upstream marketplace_api      { server 127.0.0.1:2400; keepalive 32; }
+upstream marketplace_webapp   { server 127.0.0.1:2401; keepalive 32; }
+upstream marketplace_admin    { server 127.0.0.1:2402; keepalive 32; }
+upstream marketplace_super    { server 127.0.0.1:2403; keepalive 32; }
+upstream marketplace_landing  { server 127.0.0.1:2404; keepalive 32; }
+
+# ─── Common proxy headers ──────────────────────────────────
+proxy_http_version 1.1;
+proxy_set_header Upgrade            $http_upgrade;
+proxy_set_header Connection         "upgrade";
+proxy_set_header Host               $host;
+proxy_set_header X-Real-IP          $remote_addr;
+proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
+proxy_set_header X-Forwarded-Proto  $scheme;
+proxy_set_header X-Forwarded-Host   $host;
+
+# ═══════════════════════════════════════════════════════════════════
+# 1) selliostore.uz — Landing
+# ═══════════════════════════════════════════════════════════════════
+server {
+    listen 80;
+    listen [::]:80;
+    server_name selliostore.uz www.selliostore.uz;
+
+    # ACME challenge uchun (certbot)
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    # Hammasini HTTPSga
+    location / {
+        return 301 https://selliostore.uz$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name selliostore.uz www.selliostore.uz;
+
+    ssl_certificate     /etc/letsencrypt/live/selliostore.uz/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/selliostore.uz/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    # Media yuklash uchun (broadcast/kanal video ≤50MB, rasmlar ≤10MB + multipart overhead).
+    # Bo'lmasa nginx default 1MB → katta yuklamalar HTTP 413 beradi.
+    client_max_body_size 60m;
+
+    # www → apex
+    if ($host = www.selliostore.uz) {
+        return 301 https://selliostore.uz$request_uri;
+    }
+
+    # Telegram webhook'lar → backend (markaziy /telegram/webhook va har sotuvchi
+    # boti /telegram/t/<id>/webhook). Backend global 'api' prefiksidan istisno qilingan.
+    # Bu yo'l bo'lmasa, Telegram POST'lari landing'ga ketadi (404).
+    location /telegram/ {
+        proxy_pass http://marketplace_api;
+        proxy_read_timeout 30s;
+    }
+
+    # API → backend (landing signup form'i uchun)
+    location /api/ {
+        proxy_pass http://marketplace_api;
+        proxy_read_timeout 60s;
+    }
+
+    # Uploads → backend
+    location /uploads/ {
+        proxy_pass http://marketplace_api;
+        proxy_cache_valid 200 1d;
+    }
+
+    # Landing
+    location / {
+        proxy_pass http://marketplace_landing;
+        proxy_read_timeout 30s;
+    }
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# 2) admin.selliostore.uz — Admin Panel (Next.js)
+# ═══════════════════════════════════════════════════════════════════
+server {
+    listen 80;
+    listen [::]:80;
+    server_name admin.selliostore.uz;
+
+    location /.well-known/acme-challenge/ { root /var/www/certbot; }
+    location / { return 301 https://admin.selliostore.uz$request_uri; }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name admin.selliostore.uz;
+
+    ssl_certificate     /etc/letsencrypt/live/selliostore.uz/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/selliostore.uz/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    # Media yuklash uchun (broadcast/kanal video ≤50MB, rasmlar ≤10MB + multipart overhead).
+    # Bo'lmasa nginx default 1MB → katta yuklamalar HTTP 413 beradi.
+    client_max_body_size 60m;
+
+    # Telegram webhook — server ko'chganda DNS keshini chetlab o'tish uchun
+    location /telegram/ {
+        proxy_pass http://marketplace_api;
+        proxy_read_timeout 30s;
+    }
+
+    location /api/ {
+        proxy_pass http://marketplace_api;
+        proxy_read_timeout 60s;
+    }
+
+    location /uploads/ {
+        proxy_pass http://marketplace_api;
+        proxy_cache_valid 200 1d;
+    }
+
+    location /socket.io/ {
+        proxy_pass http://marketplace_api;
+        proxy_read_timeout 86400s;
+    }
+
+    location / {
+        proxy_pass http://marketplace_admin;
+    }
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# 3) clients.selliostore.uz — Webapp / Telegram Mini App
+# ═══════════════════════════════════════════════════════════════════
+server {
+    listen 80;
+    listen [::]:80;
+    server_name clients.selliostore.uz;
+
+    location /.well-known/acme-challenge/ { root /var/www/certbot; }
+    location / { return 301 https://clients.selliostore.uz$request_uri; }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name clients.selliostore.uz;
+
+    ssl_certificate     /etc/letsencrypt/live/selliostore.uz/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/selliostore.uz/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    # Media yuklash uchun (broadcast/kanal video ≤50MB, rasmlar ≤10MB + multipart overhead).
+    # Bo'lmasa nginx default 1MB → katta yuklamalar HTTP 413 beradi.
+    client_max_body_size 60m;
+
+    # Telegram webhook (markaziy + sotuvchi botlari) — subdomen orqali ham
+    # ishlasin: yangi serverga ko'chganda Telegram apex DNS keshini chetlab o'tadi.
+    location /telegram/ {
+        proxy_pass http://marketplace_api;
+        proxy_read_timeout 30s;
+    }
+
+    location /api/ {
+        proxy_pass http://marketplace_api;
+    }
+
+    location /uploads/ {
+        proxy_pass http://marketplace_api;
+        proxy_cache_valid 200 1d;
+    }
+
+    location /socket.io/ {
+        proxy_pass http://marketplace_api;
+        proxy_read_timeout 86400s;
+    }
+
+    location / {
+        proxy_pass http://marketplace_webapp;
+    }
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# 4) dev.selliostore.uz — Super Admin (Platform Owner)
+# ═══════════════════════════════════════════════════════════════════
+server {
+    listen 80;
+    listen [::]:80;
+    server_name dev.selliostore.uz;
+
+    location /.well-known/acme-challenge/ { root /var/www/certbot; }
+    location / { return 301 https://dev.selliostore.uz$request_uri; }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name dev.selliostore.uz;
+
+    ssl_certificate     /etc/letsencrypt/live/selliostore.uz/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/selliostore.uz/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    # Media yuklash uchun (broadcast/kanal video ≤50MB, rasmlar ≤10MB + multipart overhead).
+    # Bo'lmasa nginx default 1MB → katta yuklamalar HTTP 413 beradi.
+    client_max_body_size 60m;
+
+    # Faqat OWNER/DEVOPS uchun — IP allowlist (ixtiyoriy)
+    # allow 1.2.3.4;   # ofis IP
+    # deny all;
+
+    # Telegram webhook — server ko'chganda DNS keshini chetlab o'tish uchun
+    location /telegram/ {
+        proxy_pass http://marketplace_api;
+        proxy_read_timeout 30s;
+    }
+
+    location /api/ {
+        proxy_pass http://marketplace_api;
+    }
+
+    location /uploads/ {
+        proxy_pass http://marketplace_api;
+    }
+
+    location /socket.io/ {
+        proxy_pass http://marketplace_api;
+        proxy_read_timeout 86400s;
+    }
+
+    location / {
+        proxy_pass http://marketplace_super;
+    }
+}

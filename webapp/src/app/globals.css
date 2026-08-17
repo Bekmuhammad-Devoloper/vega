@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #2F6BFF;
+  --color-primary-hover: #1F4FCC;
+  --color-bg: #F4F6FA;
+  --color-surface: #FFFFFF;
+  --color-text: #0F172A;
+  --color-text-muted: #64748B;
+  --color-border: #E5E7EB;
+  --color-success: #16A34A;
+  --color-danger: #EF4444;
+  --color-favorite: #EF4444;
+
+  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Inter",
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/*
+ * MINIMAL CSS — scroll'ga aralashmaymiz, native browser behavior.
+ * Faqat horizontal overflow'ni yopamiz, qolgani default.
+ */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  /* Horizontal scroll'ni butunlay yopamiz. Vertikal — to'liq erkin. */
+  overflow-x: hidden;
+}
+
+/* Hide scrollbars on horizontal scrollers */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+
+/* Skeleton */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #E5E7EB 0%, #F3F4F6 50%, #E5E7EB 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+/* Safe-area for Telegram WebApp */
+.pb-safe { padding-bottom: calc(env(safe-area-inset-bottom) + 1rem); }

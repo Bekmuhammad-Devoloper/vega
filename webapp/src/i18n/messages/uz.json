@@ -1,0 +1,103 @@
+{
+  "appName": "Virtual raqamlar",
+  "common": {
+    "loading": "Yuklanmoqda...",
+    "error": "Xatolik yuz berdi",
+    "retry": "Qayta urinish",
+    "cancel": "Bekor qilish",
+    "save": "Saqlash",
+    "back": "Orqaga",
+    "close": "Yopish",
+    "search": "Qidirish",
+    "submit": "Tasdiqlash"
+  },
+  "currency": "so'm",
+  "nav": {
+    "catalog": "Katalog",
+    "orders": "Buyurtmalar",
+    "profile": "Profil"
+  },
+  "storefront": {
+    "chooseService": "Xizmatni tanlang",
+    "subtitle": "SMS tasdiqlash uchun virtual raqam",
+    "chooseCountry": "Davlatni tanlang",
+    "from": "dan",
+    "buy": "Sotib olish",
+    "noServices": "Hozircha xizmatlar yo'q",
+    "noOffers": "Bu xizmat uchun davlatlar yo'q"
+  },
+  "digital": {
+    "stars": "Telegram Stars",
+    "premium": "Telegram Premium",
+    "username": "Telegram username",
+    "usernamePlaceholder": "username",
+    "usernameHint": "@ belgisisz, 4-32 ta harf, raqam yoki _",
+    "usernameInvalid": "Username noto'g'ri (4-32 ta harf, raqam yoki _)",
+    "recipient": "Kim uchun",
+    "price": "Narx",
+    "confirm": "Sotib olish",
+    "successTitle": "Buyurtma yaratildi",
+    "successHint": "To'lov qabul qilindi. Buyurtma tez orada yetkaziladi.",
+    "toOrders": "Buyurtmalarga o'tish",
+    "sectionNumbers": "Raqamlar",
+    "sectionDigital": "Stars / Premium",
+    "empty": "Digital buyurtmalar yo'q",
+    "status": {
+      "PENDING": "Yetkazilmoqda",
+      "FULFILLED": "Yetkazildi",
+      "CANCELLED": "Bekor qilindi"
+    }
+  },
+  "balance": {
+    "title": "Balans",
+    "topUp": "To'ldirish",
+    "topUpHint": "Balansni to'ldirish uchun do'kon bilan bog'laning. Tez orada mablag' hisobingizga qo'shiladi."
+  },
+  "order": {
+    "title": "Buyurtmalar",
+    "empty": "Sizda hozircha buyurtmalar yo'q",
+    "phone": "Telefon raqami",
+    "waitingTitle": "SMS kutilmoqda...",
+    "waitingHint": "Raqamni ilovaga kiriting va SMS kodni kuting",
+    "codeReceived": "Kod keldi!",
+    "copy": "Nusxa olish",
+    "copied": "Nusxa olindi",
+    "refunded": "Mablag' balansingizga qaytarildi",
+    "price": "Narx",
+    "date": "Sana",
+    "cancel": "Buyurtmani bekor qilish",
+    "cancelHint": "Bekor qilsangiz, mablag' balansga qaytadi",
+    "tabs": { "active": "Faol", "done": "Kelgan", "other": "Boshqa" },
+    "status": {
+      "WAITING_CODE": "SMS kutilmoqda",
+      "RECEIVED": "Kod keldi",
+      "CANCELLED": "Bekor qilindi",
+      "EXPIRED": "Muddat tugadi",
+      "ERROR": "Xatolik"
+    }
+  },
+  "profile": {
+    "title": "Profil",
+    "guest": "Mehmon",
+    "language": "Ilova tili",
+    "support": "Yordam",
+    "about": "Biz haqimizda",
+    "contact": "Bog'lanish"
+  },
+  "support": {
+    "title": "Yordam",
+    "subject": "Mavzu",
+    "message": "Xabar",
+    "send": "Yuborish",
+    "sent": "Xabaringiz qabul qilindi",
+    "newResponse": "Sizga support javob keldi"
+  },
+  "language": {
+    "title": "Til tanlash",
+    "uz": "O'zbekcha",
+    "ru": "Русский"
+  },
+  "about": {
+    "title": "Biz haqimizda"
+  }
+}

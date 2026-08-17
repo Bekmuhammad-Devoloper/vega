@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #2F6BFF;
+  --color-primary-hover: #1F4FCC;
+  --color-bg: #F4F6FA;
+  --color-surface: #FFFFFF;
+  --color-text: #0F172A;
+  --color-text-muted: #64748B;
+  --color-border: #E5E7EB;
+  --color-success: #16A34A;
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
+  --color-info: #0EA5E9;
+
+  --radius-card: 16px;
+
+  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Inter",
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+html, body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-height: 100dvh;
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #E5E7EB 0%, #F3F4F6 50%, #E5E7EB 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+.pb-safe { padding-bottom: calc(env(safe-area-inset-bottom) + 1rem); }
+
+button, a { -webkit-tap-highlight-color: transparent; }
+
+/* Scrollable areas */
+.scroll-y {
+  overflow-y: auto;
+}
+
+/* Raqamli inputlardagi spinner (yuqori/past strelka) o'rniga toza yozish */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}

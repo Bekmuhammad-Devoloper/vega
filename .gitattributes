@@ -1,0 +1,4 @@
+# Linux serverda ishlaydigan shell skriptlar har doim LF bilan saqlansin
+*.sh text eol=lf
+deploy/** text eol=lf
+.github/workflows/*.yml text eol=lf

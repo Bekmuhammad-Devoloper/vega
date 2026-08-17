@@ -1,0 +1,103 @@
+{
+  "appName": "Виртуальные номера",
+  "common": {
+    "loading": "Загрузка...",
+    "error": "Произошла ошибка",
+    "retry": "Повторить",
+    "cancel": "Отмена",
+    "save": "Сохранить",
+    "back": "Назад",
+    "close": "Закрыть",
+    "search": "Поиск",
+    "submit": "Подтвердить"
+  },
+  "currency": "сум",
+  "nav": {
+    "catalog": "Каталог",
+    "orders": "Заказы",
+    "profile": "Профиль"
+  },
+  "storefront": {
+    "chooseService": "Выберите сервис",
+    "subtitle": "Виртуальный номер для SMS-подтверждения",
+    "chooseCountry": "Выберите страну",
+    "from": "от",
+    "buy": "Купить",
+    "noServices": "Пока нет сервисов",
+    "noOffers": "Нет доступных стран для этого сервиса"
+  },
+  "digital": {
+    "stars": "Telegram Stars",
+    "premium": "Telegram Premium",
+    "username": "Telegram username",
+    "usernamePlaceholder": "username",
+    "usernameHint": "Без @, 4-32 буквы, цифры или _",
+    "usernameInvalid": "Неверный username (4-32 буквы, цифры или _)",
+    "recipient": "Для кого",
+    "price": "Цена",
+    "confirm": "Купить",
+    "successTitle": "Заказ создан",
+    "successHint": "Оплата принята. Заказ будет выполнен в ближайшее время.",
+    "toOrders": "Перейти к заказам",
+    "sectionNumbers": "Номера",
+    "sectionDigital": "Stars / Premium",
+    "empty": "Нет цифровых заказов",
+    "status": {
+      "PENDING": "Выполняется",
+      "FULFILLED": "Выполнен",
+      "CANCELLED": "Отменён"
+    }
+  },
+  "balance": {
+    "title": "Баланс",
+    "topUp": "Пополнить",
+    "topUpHint": "Для пополнения баланса свяжитесь с магазином. Средства будут зачислены в ближайшее время."
+  },
+  "order": {
+    "title": "Заказы",
+    "empty": "У вас пока нет заказов",
+    "phone": "Номер телефона",
+    "waitingTitle": "Ожидание SMS...",
+    "waitingHint": "Введите номер в приложении и дождитесь SMS-кода",
+    "codeReceived": "Код получен!",
+    "copy": "Копировать",
+    "copied": "Скопировано",
+    "refunded": "Средства возвращены на баланс",
+    "price": "Цена",
+    "date": "Дата",
+    "cancel": "Отменить заказ",
+    "cancelHint": "При отмене средства вернутся на баланс",
+    "tabs": { "active": "Активные", "done": "Получен", "other": "Другие" },
+    "status": {
+      "WAITING_CODE": "Ожидание SMS",
+      "RECEIVED": "Код получен",
+      "CANCELLED": "Отменён",
+      "EXPIRED": "Истёк срок",
+      "ERROR": "Ошибка"
+    }
+  },
+  "profile": {
+    "title": "Профиль",
+    "guest": "Гость",
+    "language": "Язык приложения",
+    "support": "Помощь",
+    "about": "О нас",
+    "contact": "Контакты"
+  },
+  "support": {
+    "title": "Поддержка",
+    "subject": "Тема",
+    "message": "Сообщение",
+    "send": "Отправить",
+    "sent": "Ваше сообщение принято",
+    "newResponse": "Поддержка ответила"
+  },
+  "language": {
+    "title": "Выбор языка",
+    "uz": "O'zbekcha",
+    "ru": "Русский"
+  },
+  "about": {
+    "title": "О нас"
+  }
+}

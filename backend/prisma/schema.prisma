@@ -1,0 +1,986 @@
+// ═══════════════════════════════════════════════════════════════════
+// VEGA — Virtual raqam sotuvchi ko'p-ijarali SaaS
+// (Sellio marketplace andozasidan fork; domen: jismoniy tovar -> SMS raqam)
+//
+// Biznes model:
+//  - Reseller BIR MARTALIK to'lov qiladi -> o'z do'koni + boti ochiladi
+//  - Reseller HAMYONINI to'ldiradi -> har raqamni platformadan ULGURJI oladi
+//  - Reseller admin panelda RETAIL narx (markup) qo'yib mijozga sotadi
+//  - Platforma (superadmin) markaziy provayderni ushlaydi: SPIDER/HeroSMS/Fragment
+// ═══════════════════════════════════════════════════════════════════
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Language {
+  uz
+  ru
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RAQAM DOMENI (jismoniy Product/Order o'rniga)
+// ─────────────────────────────────────────────────────────────────
+
+/// Bitta raqam-buyurtma holati (provayder oqimi)
+enum NumberOrderStatus {
+  WAITING_CODE // raqam olindi, SMS kutilmoqda
+  RECEIVED     // kod keldi
+  CANCELLED    // bekor qilindi (pul qaytdi)
+  EXPIRED      // muddat tugadi, kod kelmadi
+  ERROR        // provayder xatosi
+}
+
+/// Provayder turi
+enum ProviderKind {
+  SPIDER   // real SIM, Telegram (asosiy)
+  HEROSMS  // arzon, boshqa xizmatlar
+  FRAGMENT // Stars / Premium
+  MOCK     // demo/test
+}
+
+/// Mijoz to'lov usuli (reseller do'konida)
+enum PaymentMethod {
+  BALANCE       // mijozning do'kondagi balansidan
+  PAYME
+  CLICK
+  CARD_TRANSFER // chek yuklaydi, reseller tasdiqlaydi
+  MANUAL
+}
+
+enum PaymentProvider {
+  PAYME
+  CLICK
+}
+
+/// Reseller hamyoni (ulgurji balans) tranzaksiya turi
+enum WalletTxType {
+  TOPUP      // reseller balansini to'ldirdi
+  PURCHASE   // raqam uchun ulgurji yechim
+  REFUND     // bekor qilingan raqam uchun qaytarish
+  ADJUSTMENT // superadmin qo'lda tuzatish
+  ACTIVATION // bir martalik faollashtirish to'lovi
+}
+
+/// Sotiladigan xizmat turi (Telegram, WhatsApp...) — platforma darajasi
+model Service {
+  id           String   @id @default(cuid())
+  slug         String   @unique // telegram, whatsapp, instagram...
+  nameUz       String
+  nameRu       String
+  emoji        String?
+  heroCode     String? // HeroSMS xizmat kodi (tg, wa...)
+  telegramOnly Boolean  @default(false) // faqat SPIDER (masalan telegram real SIM)
+  isActive     Boolean  @default(true)
+  position     Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  prices         PlatformPrice[]
+  resellerOffers ResellerOffer[]
+  orders         NumberOrder[]
+}
+
+/// Davlat — platforma darajasi
+model Country {
+  id        String   @id @default(cuid())
+  slug      String   @unique // uzbekistan, usa...
+  nameUz    String
+  nameRu    String
+  flag      String
+  iso2      String // UZ (SPIDER kodi)
+  heroCode  String? // HeroSMS davlat kodi
+  isActive  Boolean  @default(true)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  prices         PlatformPrice[]
+  resellerOffers ResellerOffer[]
+  orders         NumberOrder[]
+}
+
+/// Platforma ulgurji narxi: (xizmat × davlat × provayder)
+/// wholesaleUsd — reseller shu narxda oladi; providerCostUsd — sizning tannarx (margin hisobi).
+model PlatformPrice {
+  id              String       @id @default(cuid())
+  serviceId       String
+  service         Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  countryId       String
+  country         Country      @relation(fields: [countryId], references: [id], onDelete: Cascade)
+  provider        ProviderKind
+  providerCostUsd Decimal      @db.Decimal(10, 4) // xom provayder tannarxi
+  wholesaleUsd    Decimal      @db.Decimal(10, 4) // resellerga ulgurji (tannarx + platforma margin)
+  isActive        Boolean      @default(true)
+  updatedAt       DateTime     @updatedAt
+
+  @@unique([serviceId, countryId, provider])
+  @@index([serviceId, countryId])
+}
+
+/// Reseller taklifi: qaysi (xizmat×davlat)ni sotadi + o'z RETAIL narxi (so'mda).
+model ResellerOffer {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  serviceId   String
+  service     Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  countryId   String
+  country     Country  @relation(fields: [countryId], references: [id], onDelete: Cascade)
+  retailPrice Decimal  @db.Decimal(12, 2) // mijozga narx (UZS)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, serviceId, countryId])
+  @@index([tenantId, isActive])
+}
+
+/// Mijoz raqam-buyurtmasi (Sellio Order+OrderItem o'rniga — bitta raqam).
+model NumberOrder {
+  id          String            @id @default(cuid())
+  orderNumber String            @unique
+  tenantId    String
+  tenant      Tenant            @relation(fields: [tenantId], references: [id])
+  userId      String
+  user        User              @relation(fields: [userId], references: [id])
+
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id])
+  countryId String
+  country   Country @relation(fields: [countryId], references: [id])
+
+  provider   ProviderKind
+  providerId String // provayder hash_code / activation id
+  phone      String
+  status     NumberOrderStatus @default(WAITING_CODE)
+  code       String? // kelgan SMS kod
+  smsText    String?
+
+  // Narxlar (UZS)
+  wholesalePrice Decimal @db.Decimal(12, 2) // reseller hamyonidan yechilgan ulgurji
+  retailPrice    Decimal @db.Decimal(12, 2) // mijoz to'lagan retail
+  profit         Decimal @db.Decimal(12, 2) // retail - wholesale (reseller foydasi)
+
+  paymentMethod PaymentMethod @default(BALANCE)
+  paidAt        DateTime?
+
+  expiresAt   DateTime
+  receivedAt  DateTime?
+  cancelledAt DateTime?
+
+  promoCodeId   String?
+  promoCode     PromoCode? @relation(fields: [promoCodeId], references: [id])
+  promoSnapshot String?
+
+  transactions PaymentTransaction[]
+  events       NumberOrderEvent[]
+  walletTxs    WalletTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, status])
+  @@index([userId, status])
+  @@index([createdAt])
+}
+
+model NumberOrderEvent {
+  id        String            @id @default(cuid())
+  orderId   String
+  order     NumberOrder       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status    NumberOrderStatus
+  comment   String?
+  changedBy String?
+  createdAt DateTime          @default(now())
+
+  @@index([orderId])
+}
+
+/// Reseller hamyoni (ulgurji balans) tranzaksiyalari — Tenant.walletBalance ledgeri.
+model WalletTransaction {
+  id           String       @id @default(cuid())
+  tenantId     String
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  type         WalletTxType
+  amount       Decimal      @db.Decimal(12, 2) // + topup/refund, - purchase
+  balanceAfter Decimal      @db.Decimal(12, 2)
+  orderId      String?
+  order        NumberOrder? @relation(fields: [orderId], references: [id])
+  note         String?
+  receiptUrl   String? // to'lov cheki (topup / mijoz balansiga o'tkazma)
+  createdAt    DateTime     @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([type, createdAt])
+}
+
+/// Onlayn to'lov tranzaksiyasi (Payme/Click) — mijoz raqam uchun to'laganda.
+model PaymentTransaction {
+  id           String          @id @default(cuid())
+  tenantId     String
+  orderId      String
+  order        NumberOrder     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider     PaymentProvider
+  providerTxId String
+  amount       Decimal         @db.Decimal(12, 2)
+  state        Int             @default(1)
+  reason       Int?
+  createTime   BigInt?
+  performTime  BigInt?
+  cancelTime   BigInt?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@unique([provider, providerTxId])
+  @@index([orderId])
+  @@index([tenantId])
+}
+
+/// Mijoz BALANS to'ldirish so'rovi (karta + chek) — sotuvchi kanaldan tasdiqlaydi.
+/// Tasdiqlansa User.balance oshadi. Reseller wallet'dan farqli (bu mijoz balansi).
+model BalanceTopup {
+  id         String   @id @default(cuid())
+  tenantId   String
+  userId     String
+  amount     Decimal  @db.Decimal(12, 2)
+  receiptUrl String?
+  status     String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([tenantId, status])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────────────
+// FOYDALANUVCHILAR / AUTH (3 realm: mijoz, reseller-admin, platform-admin)
+// ─────────────────────────────────────────────────────────────────
+
+model User {
+  id         String   @id @default(cuid())
+  telegramId BigInt   @unique
+  username   String?
+  firstName  String?
+  lastName   String?
+  photoUrl   String?
+  phone      String?
+  language   Language @default(uz)
+  balance    Decimal  @default(0) @db.Decimal(12, 2) // mijozning do'kondagi balansi
+  isBlocked  Boolean  @default(false)
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  orders        NumberOrder[]
+  digitalOrders DigitalOrder[]
+  events        UserEvent[]
+  tickets       SupportTicket[]
+  promoUsages   PromoCodeUsage[]
+  tenantBlocks  TenantBlockedUser[]
+
+  @@index([lastSeenAt])
+}
+
+enum AdminRole {
+  SUPERADMIN
+  ADMIN
+  MANAGER
+  MODERATOR
+}
+
+/// Reseller-admin (do'kon egasi va jamoasi) — tenantId bilan bog'langan.
+model Admin {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  passwordHash  String?
+  fullName      String
+  role          AdminRole      @default(ADMIN)
+  isActive      Boolean        @default(true)
+  telegramId    BigInt?
+  photoUrl      String?
+  tenantId      String?
+  tenant        Tenant?        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  refreshTokens RefreshToken[]
+
+  @@unique([tenantId, telegramId])
+  @@index([telegramId])
+  @@index([tenantId])
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  adminId   String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  admin     Admin     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TENANT (reseller do'koni — multi-tenant root)
+// ─────────────────────────────────────────────────────────────────
+
+enum TariffPlan {
+  FREE
+  STANDARD
+  PRO
+  PREMIUM
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+  PENDING_PAYMENT // bir martalik to'lov kutilmoqda
+}
+
+model Tenant {
+  id              String  @id @default(cuid())
+  slug            String  @unique
+  shopName        String
+  ownerName       String
+  ownerEmail      String? @unique
+  ownerPhone      String?
+  ownerTelegramId BigInt?
+  ownerUsername   String?
+
+  // Reseller ULGURJI hamyoni (raqam/Stars/Premium sotib olish uchun)
+  walletBalance Decimal @default(0) @db.Decimal(12, 2)
+
+  // Otziv kanali — har sotuv avtomatik "sotuv e'loni" (ijtimoiy isbot) sifatida
+  // reseller'ning ochiq Telegram kanaliga joylanadi
+  reviewsChannelId String?
+  reviewsEnabled   Boolean @default(false)
+
+  // Do'kon "Biz haqimizda" sahifasida ko'rsatiladigan havolalar (ulangan bo'lsa)
+  mainChannelUrl   String? // asosiy kanal (t.me/...)
+  reviewChannelUrl String? // otziv kanali havolasi (ko'rsatish uchun)
+  adminContactUrl  String? // admin lichkasi (t.me/username); bo'sh -> ownerUsername
+
+  // Majburiy obuna — mijoz START bosganda ushbu kanallarga a'zo bo'lishi shart.
+  // @Vega_uzbot ushbu kanallarda ADMIN bo'lishi kerak (a'zolikni tekshirish uchun).
+  forcedSubEnabled  Boolean @default(false)
+  forcedSubChannels Json? // [{ username: "@kanal", title: "Nom" }]
+
+  // Do'konда qaysi turlar yoqilgan (reseller admin panelда yoqadi)
+  starsEnabled   Boolean @default(false)
+  premiumEnabled Boolean @default(false)
+
+  // BIR MARTALIK faollashtirish to'lovi
+  tariffPlan       TariffPlan @default(FREE) // feature darajasi (bir martalik sotib olinadi)
+  isActivated      Boolean    @default(false)
+  activationPaidAt DateTime?
+  activationAmount Decimal?   @db.Decimal(12, 2)
+
+  // Status
+  status          TenantStatus @default(PENDING_PAYMENT)
+  suspendedReason String?
+  suspendedAt     DateTime?
+
+  // Do'kon ma'lumotlari
+  about        String?
+  workingHours String?
+
+  // Onlayn to'lov — har reseller o'z merchant hisobi (mijozdan retail yig'ish uchun)
+  paymeMerchantId        String?
+  paymeKey               String?
+  clickServiceId         String?
+  clickMerchantId        String?
+  clickMerchantUserId    String?
+  clickSecretKey         String?
+  manualCardNumber       String?
+  manualCardHolder       String?
+  manualPaymentChannelId String?
+
+  // Referal tizimi
+  referralCode        String?  @unique
+  referredById        String?
+  referralBalance     Decimal  @default(0) @db.Decimal(12, 2)
+  referralEarnedTotal Decimal  @default(0) @db.Decimal(12, 2)
+
+  // Brendlash
+  logoUrl            String?
+  primaryColor       String?
+  backgroundColor    String?
+  backgroundImageUrl String?
+  customDomain       String?  @unique
+  isWhiteLabel       Boolean  @default(false)
+
+  // Telegram bot (reseller o'z raqam-sotuvchi boti)
+  botToken    String? @unique
+  botUsername String?
+  botPhotoUrl String?
+  channelId   String?
+
+  // Abuse himoyasi: qurilma (brauzer localStorage) ID — bir qurilmadan
+  // boshqa Telegram akkaunt bilan qayta free olishni to'sadi.
+  deviceId String?
+
+  customLimits Json?
+
+  // Cached statistika
+  lastActivityAt DateTime @default(now())
+  totalRevenue   Decimal  @default(0) @db.Decimal(15, 2) // reseller foydasi jami
+  totalOrders    Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  admins         Admin[]
+  resellerOffers ResellerOffer[]
+  orders         NumberOrder[]
+  digitalOffers  DigitalOffer[]
+  digitalOrders  DigitalOrder[]
+  walletTxs      WalletTransaction[]
+  subscriptions  Subscription[]
+  invoices       Invoice[]
+  resourceStats  TenantResourceStat[]
+  channelPosts   ChannelPost[]
+  blockedUsers   TenantBlockedUser[]
+  promoCodes     PromoCode[]
+
+  @@index([status, tariffPlan])
+  @@index([ownerEmail])
+  @@index([ownerTelegramId])
+  @@index([lastActivityAt])
+  @@index([referredById])
+  @@index([deviceId])
+}
+
+/// Reseller o'z do'konida bloklagan mijozlar (per-tenant).
+model TenantBlockedUser {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  reason    String?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────────────
+// PROMO / SUPPORT / BROADCAST / BANNER / CHANNEL (Sellio'dan — moslashtirilgan)
+// ─────────────────────────────────────────────────────────────────
+
+enum PromoType {
+  PERCENT
+  FIXED
+}
+
+model PromoCode {
+  id             String    @id @default(cuid())
+  tenantId       String?
+  tenant         Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  code           String
+  type           PromoType
+  value          Decimal   @db.Decimal(12, 2)
+  minOrderAmount Decimal?  @db.Decimal(12, 2)
+  maxDiscount    Decimal?  @db.Decimal(12, 2)
+  startsAt       DateTime?
+  expiresAt      DateTime?
+  usageLimit     Int?
+  perUserLimit   Int       @default(1)
+  usageCount     Int       @default(0)
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  usages PromoCodeUsage[]
+  orders NumberOrder[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+model PromoCodeUsage {
+  id          String    @id @default(cuid())
+  promoCodeId String
+  userId      String
+  orderId     String?   @unique
+  promoCode   PromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@index([promoCodeId, userId])
+}
+
+model SupportTicket {
+  id               String            @id @default(cuid())
+  userId           String
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId         String?
+  subject          String
+  message          String
+  status           String            @default("open")
+  channelMessageId Int?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  responses        SupportResponse[]
+
+  @@index([userId, createdAt])
+  @@index([tenantId])
+}
+
+model SupportResponse {
+  id        String        @id @default(cuid())
+  ticketId  String
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  fromAdmin Boolean       @default(true)
+  message   String
+  createdAt DateTime      @default(now())
+}
+
+enum ChannelPostStatus {
+  SCHEDULED
+  PUBLISHED
+  FAILED
+  CANCELLED
+}
+
+model ChannelPost {
+  id               String            @id @default(cuid())
+  tenantId         String
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  text             String
+  imageUrl         String?
+  videoUrl         String?
+  buyButton        Boolean           @default(false)
+  buttonText       String?
+  scheduledAt      DateTime
+  status           ChannelPostStatus @default(SCHEDULED)
+  publishedAt      DateTime?
+  channelMessageId Int?
+  error            String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([status, scheduledAt])
+  @@index([tenantId])
+}
+
+model Broadcast {
+  id             String    @id @default(cuid())
+  tenantId       String?
+  messageUz      String
+  messageRu      String?
+  filters        Json
+  mediaType      String    @default("text")
+  mediaUrl       String?
+  copyFromChatId String?
+  copyMessageId  Int?
+  totalCount     Int       @default(0)
+  sentCount      Int       @default(0)
+  failedCount    Int       @default(0)
+  status         String    @default("pending")
+  createdById    String
+  createdAt      DateTime  @default(now())
+  finishedAt     DateTime?
+
+  @@index([createdAt])
+  @@index([status])
+  @@index([tenantId])
+}
+
+model Banner {
+  id          String    @id @default(cuid())
+  tenantId    String?
+  placement   String    @default("home")
+  imageUrlUz  String
+  imageUrlRu  String?
+  targetType  String    @default("none")
+  targetValue String?
+  position    Int       @default(0)
+  isActive    Boolean   @default(true)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([placement, isActive, position])
+  @@index([tenantId])
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ANALITIKA
+// ─────────────────────────────────────────────────────────────────
+
+enum EventType {
+  VIEW_HOME
+  VIEW_CATALOG
+  VIEW_SERVICE
+  VIEW_ORDERS
+  VIEW_ORDER_DETAIL
+  SEARCH_QUERY
+  CHECKOUT_START
+  ORDER_PLACED
+  ORDER_CANCEL
+  CODE_RECEIVED
+  BALANCE_TOPUP
+  BANNER_CLICK
+}
+
+model UserEvent {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId  String?
+  type      EventType
+  serviceId String?
+  countryId String?
+  payload   Json?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([type, createdAt])
+  @@index([tenantId, type, createdAt])
+}
+
+model WeeklyStat {
+  id        String   @id @default(cuid())
+  weekStart DateTime
+  weekEnd   DateTime
+  metric    String
+  scope     String   @default("global")
+  data      Json
+  createdAt DateTime @default(now())
+
+  @@unique([weekStart, metric, scope])
+  @@index([weekStart])
+}
+
+model Settings {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SUPER ADMIN / PLATFORMA EGASI (= DEV PANEL)
+// ═══════════════════════════════════════════════════════════════════
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  PAST_DUE
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum PlatformRole {
+  OWNER
+  DEVOPS
+  FINANCE
+  SALES
+  SUPPORT
+}
+
+/// Bir martalik faollashtirish yozuvi (Sellio Subscription o'rnida — tarix uchun).
+model Subscription {
+  id            String             @id @default(cuid())
+  tenantId      String
+  tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan          TariffPlan
+  amount        Decimal            @db.Decimal(12, 2)
+  currency      String             @default("UZS")
+  startsAt      DateTime
+  endsAt        DateTime? // bir martalik — muddatsiz (null)
+  status        SubscriptionStatus @default(ACTIVE)
+  paymentMethod String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  invoices      Invoice[]
+
+  @@index([tenantId, status])
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  invoiceNumber   String        @unique
+  tenantId        String
+  tenant          Tenant        @relation(fields: [tenantId], references: [id])
+  subscriptionId  String?
+  subscription    Subscription? @relation(fields: [subscriptionId], references: [id])
+  amount          Decimal       @db.Decimal(12, 2)
+  currency        String        @default("UZS")
+  status          InvoiceStatus @default(PENDING)
+  kind            String        @default("ACTIVATION") // ACTIVATION | WALLET_TOPUP
+  paymentProvider String?
+  providerTxId    String?
+  paidAt          DateTime?
+  dueDate         DateTime
+  description     String?
+  metadata        Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([tenantId, status])
+  @@index([status, dueDate])
+  @@index([providerTxId])
+}
+
+model PlatformAdmin {
+  id               String                 @id @default(cuid())
+  email            String                 @unique
+  passwordHash     String
+  fullName         String
+  role             PlatformRole           @default(SUPPORT)
+  isActive         Boolean                @default(true)
+  twoFactorSecret  String?
+  twoFactorEnabled Boolean                @default(false)
+  lastLoginAt      DateTime?
+  lastLoginIp      String?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  auditLogs        PlatformAuditLog[]
+  refreshTokens    PlatformRefreshToken[]
+}
+
+model PlatformRefreshToken {
+  id        String        @id @default(cuid())
+  adminId   String
+  admin     PlatformAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  tokenHash String        @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime      @default(now())
+
+  @@index([adminId])
+}
+
+model PlatformAuditLog {
+  id         String        @id @default(cuid())
+  adminId    String
+  admin      PlatformAdmin @relation(fields: [adminId], references: [id])
+  action     String
+  targetType String?
+  targetId   String?
+  changes    Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime      @default(now())
+
+  @@index([adminId, createdAt])
+  @@index([action, createdAt])
+  @@index([targetType, targetId])
+}
+
+/// Faollashtirish tarif konfiguratsiyasi (bir martalik narx + feature limitlari).
+model TariffConfig {
+  id           String     @id @default(cuid())
+  plan         TariffPlan @unique
+  oneTimePrice Decimal    @db.Decimal(12, 2) // BIR MARTALIK faollashtirish narxi
+  maxServices  Int // reseller nechta xizmat taklif eta oladi
+  maxCountries Int
+  maxAdmins    Int        @default(1)
+  customBot    Boolean    @default(false) // o'z botini ulash mumkinmi
+  customDomain Boolean    @default(false)
+  whiteLabel   Boolean    @default(false)
+  features     Json
+  badge        String?
+  description  String?
+  isActive     Boolean    @default(true)
+  position     Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model PlatformSettings {
+  key       String   @id
+  value     Json
+  category  String   @default("general")
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+}
+
+/// Platforma (egasi) ULGURJI balansi — bitta qatorli (singleton, id="platform").
+/// Reseller to'ldirishini tasdiqlaganda shu balansdan yechiladi (yetmasa — tasdiqlab bo'lmaydi).
+model PlatformWallet {
+  id        String   @id @default("platform")
+  balance   Decimal  @default(0) @db.Decimal(15, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Platforma balansi ledgeri (audit): TOPUP (egasi to'ldirdi) / DISBURSE (resellerga tarqatildi).
+model PlatformWalletTx {
+  id           String   @id @default(cuid())
+  type         String // TOPUP | DISBURSE | ADJUSTMENT
+  amount       Decimal  @db.Decimal(15, 2) // + to'ldirish, - tarqatish
+  balanceAfter Decimal  @db.Decimal(15, 2)
+  note         String?
+  invoiceId    String?
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// Tenant kunlik resurs snapshot (superadmin infrastructure panel).
+model TenantResourceStat {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  date          DateTime @db.Date
+  ordersCount   Int      @default(0)
+  revenueUzs    Decimal  @default(0) @db.Decimal(12, 2)
+  activeUsers   Int      @default(0)
+  apiCallsCount Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  @@unique([tenantId, date])
+  @@index([date])
+}
+
+// ─────────────────────────────────────────────────────────────────
+// REFERAL (reseller reseller'ni taklif qiladi)
+// ─────────────────────────────────────────────────────────────────
+
+model ReferralEarning {
+  id          String     @id @default(cuid())
+  referrerId  String
+  referredId  String
+  plan        TariffPlan
+  basisAmount Decimal    @db.Decimal(12, 2)
+  percent     Int
+  amount      Decimal    @db.Decimal(12, 2)
+  createdAt   DateTime   @default(now())
+
+  @@index([referrerId, createdAt])
+  @@index([referredId])
+}
+
+model WithdrawalRequest {
+  id          String    @id @default(cuid())
+  tenantId    String
+  amount      Decimal   @db.Decimal(12, 2)
+  cardNumber  String
+  cardHolder  String?
+  status      String    @default("PENDING")
+  note        String?
+  processedBy String?
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([status, createdAt])
+}
+
+model PendingReferral {
+  telegramId BigInt   @id
+  code       String
+  createdAt  DateTime @default(now())
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RAQAMLI MAHSULOTLAR — Telegram Stars va Premium (Fragment orqali)
+// Raqamdan farqi: davlat yo'q, @username'ga yetkaziladi, qo'lda fulfilment.
+// ═══════════════════════════════════════════════════════════════════
+
+enum DigitalKind {
+  STARS
+  PREMIUM
+}
+
+enum DigitalOrderStatus {
+  PENDING   // to'landi, platforma yetkazishini kutmoqda
+  FULFILLED // @username'ga yetkazildi
+  CANCELLED // bekor (pul reseller hamyoniga qaytdi)
+}
+
+/// Platforma katalogi: Stars paketlari va Premium rejalari (dev panel boshqaradi).
+model DigitalProduct {
+  id           String      @id @default(cuid())
+  kind         DigitalKind
+  label        String // "100 Stars", "Premium 3 oy"
+  amount       Int // Stars soni yoki Premium oylari
+  wholesaleUsd Decimal     @db.Decimal(10, 4) // resellerga ulgurji
+  // SMM provayder (avto-yetkazish): service id + miqdor (override). Bo'sh = qo'lda.
+  providerServiceId String?
+  providerQty       Int?
+  isActive     Boolean     @default(true)
+  position     Int         @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  offers DigitalOffer[]
+  orders DigitalOrder[]
+
+  @@unique([kind, amount])
+  @@index([kind, isActive])
+}
+
+/// Reseller taklifi: qaysi Stars/Premium mahsulotini + o'z RETAIL narxi (so'm).
+model DigitalOffer {
+  id               String         @id @default(cuid())
+  tenantId         String
+  tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  digitalProductId String
+  digitalProduct   DigitalProduct @relation(fields: [digitalProductId], references: [id], onDelete: Cascade)
+  retailPrice      Decimal        @db.Decimal(12, 2)
+  isActive         Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@unique([tenantId, digitalProductId])
+  @@index([tenantId, isActive])
+}
+
+/// Mijoz Stars/Premium buyurtmasi — @username'ga qo'lda yetkaziladi.
+model DigitalOrder {
+  id               String             @id @default(cuid())
+  orderNumber      String             @unique
+  tenantId         String
+  tenant           Tenant             @relation(fields: [tenantId], references: [id])
+  userId           String
+  user             User               @relation(fields: [userId], references: [id])
+  digitalProductId String
+  digitalProduct   DigitalProduct     @relation(fields: [digitalProductId], references: [id])
+
+  kind        DigitalKind
+  username    String // @username (yetkaziladigan)
+  status      DigitalOrderStatus @default(PENDING)
+
+  wholesalePrice Decimal @db.Decimal(12, 2) // reseller hamyonidan
+  retailPrice    Decimal @db.Decimal(12, 2) // mijoz to'lagan
+  profit         Decimal @db.Decimal(12, 2)
+
+  paymentMethod PaymentMethod @default(BALANCE)
+  paidAt        DateTime?
+
+  fulfilledAt DateTime?
+  fulfilledBy String? // PlatformAdmin id
+  note        String?
+
+  providerOrderId String? // SMM provayder buyurtma id (avto-yetkazish)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, status])
+  @@index([userId, status])
+  @@index([status, createdAt])
+}

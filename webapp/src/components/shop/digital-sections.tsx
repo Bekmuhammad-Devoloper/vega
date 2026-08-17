@@ -1,0 +1,231 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Star, Crown, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Sheet } from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
+import { apiBuyDigital, apiDigitalStorefront } from '@/lib/api/endpoints';
+import { useLocaleStore } from '@/stores/locale-store';
+import { getMessages, tr, type Locale } from '@/i18n';
+import { formatMoney } from '@/lib/format';
+import { haptic } from '@/lib/telegram';
+import { toast } from '@/stores/toast-store';
+import { cn } from '@/lib/cn';
+import type { DigitalKind, DigitalProduct } from '@/lib/api/types';
+
+const USERNAME_RE = /^[a-zA-Z0-9_]{4,32}$/;
+
+interface Selection {
+  kind: DigitalKind;
+  product: DigitalProduct;
+}
+
+export function DigitalSections() {
+  const locale = useLocaleStore((s) => s.locale);
+  const messages = getMessages(locale);
+
+  const { data } = useQuery({
+    queryKey: ['digital-storefront'],
+    queryFn: apiDigitalStorefront,
+  });
+
+  const [selected, setSelected] = useState<Selection | null>(null);
+
+  const showStars = Boolean(data?.starsEnabled) && (data?.stars?.length ?? 0) > 0;
+  const showPremium = Boolean(data?.premiumEnabled) && (data?.premium?.length ?? 0) > 0;
+
+  if (!showStars && !showPremium) return null;
+
+  const pick = (kind: DigitalKind, product: DigitalProduct) => {
+    haptic('light');
+    setSelected({ kind, product });
+  };
+
+  return (
+    <div className="px-4 pb-6 space-y-6">
+      {showStars && (
+        <Section
+          icon={<Star size={18} className="text-amber-500" fill="currentColor" />}
+          title={tr(messages, 'digital.stars')}
+          products={data!.stars}
+          onPick={(p) => pick('STARS', p)}
+          locale={locale}
+        />
+      )}
+      {showPremium && (
+        <Section
+          icon={<Crown size={18} className="text-[var(--color-primary)]" fill="currentColor" />}
+          title={tr(messages, 'digital.premium')}
+          products={data!.premium}
+          onPick={(p) => pick('PREMIUM', p)}
+          locale={locale}
+        />
+      )}
+      <BuySheet selection={selected} onClose={() => setSelected(null)} />
+    </div>
+  );
+}
+
+function Section({
+  icon,
+  title,
+  products,
+  onPick,
+  locale,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  products: DigitalProduct[];
+  onPick: (p: DigitalProduct) => void;
+  locale: Locale;
+}) {
+  return (
+    <section>
+      <div className="flex items-center gap-2 mb-2.5">
+        {icon}
+        <h2 className="text-lg font-bold">{title}</h2>
+      </div>
+      <ul className="space-y-2.5">
+        {products.map((p) => (
+          <li key={p.productId}>
+            <button
+              onClick={() => onPick(p)}
+              className="w-full bg-white rounded-2xl border border-[var(--color-border)] p-3.5 flex items-center gap-3 active:scale-[0.99] transition-transform text-left"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm truncate">{p.label}</p>
+                <p className="text-sm font-bold text-[var(--color-primary)]">
+                  {formatMoney(p.retailPrice, locale)}
+                </p>
+              </div>
+              <ChevronRight size={18} className="text-[var(--color-text-muted)] shrink-0" />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function BuySheet({
+  selection,
+  onClose,
+}: {
+  selection: Selection | null;
+  onClose: () => void;
+}) {
+  const locale = useLocaleStore((s) => s.locale);
+  const messages = getMessages(locale);
+  const router = useRouter();
+  const qc = useQueryClient();
+
+  const [username, setUsername] = useState('');
+  const [done, setDone] = useState(false);
+
+  // Har yangi paket ochilganda inputni tozalaymiz
+  useEffect(() => {
+    if (selection) {
+      setUsername('');
+      setDone(false);
+    }
+  }, [selection]);
+
+  const clean = username.trim().replace(/^@+/, '');
+  const valid = USERNAME_RE.test(clean);
+
+  const buy = useMutation({
+    mutationFn: () =>
+      apiBuyDigital({ digitalProductId: selection!.product.productId, username: clean }),
+    onSuccess: () => {
+      haptic('success');
+      qc.invalidateQueries({ queryKey: ['me'] });
+      qc.invalidateQueries({ queryKey: ['digital-orders'] });
+      setDone(true);
+    },
+    onError: (err: Error) => {
+      haptic('error');
+      toast.error(err.message);
+    },
+  });
+
+  const product = selection?.product ?? null;
+
+  return (
+    <Sheet open={selection !== null} onClose={onClose} title={product?.label}>
+      {done ? (
+        <div className="pb-6 pt-2 text-center">
+          <div className="mx-auto h-14 w-14 rounded-full bg-[var(--color-success)]/12 grid place-items-center">
+            <CheckCircle2 size={30} className="text-[var(--color-success)]" />
+          </div>
+          <h3 className="mt-3 font-bold text-lg">{tr(messages, 'digital.successTitle')}</h3>
+          <p className="text-sm text-[var(--color-text-muted)] mt-1">
+            {tr(messages, 'digital.successHint')}
+          </p>
+          <Button
+            fullWidth
+            className="mt-5"
+            onClick={() => {
+              onClose();
+              router.push('/orders');
+            }}
+          >
+            {tr(messages, 'digital.toOrders')}
+          </Button>
+        </div>
+      ) : product ? (
+        <div className="pb-6 space-y-4">
+          {/* @username kiritish */}
+          <div>
+            <label className="text-sm font-medium">{tr(messages, 'digital.username')}</label>
+            <div className="mt-1.5 flex items-center h-12 px-4 rounded-2xl border border-[var(--color-border)] bg-white focus-within:ring-2 focus-within:ring-[var(--color-primary)] focus-within:border-transparent">
+              <span className="text-[var(--color-text-muted)] select-none">@</span>
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder={tr(messages, 'digital.usernamePlaceholder')}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                inputMode="text"
+                className="flex-1 ml-1 bg-transparent outline-none text-[var(--color-text)] placeholder:text-[var(--color-text-muted)]"
+              />
+            </div>
+            <p
+              className={cn(
+                'text-xs mt-1.5',
+                username && !valid
+                  ? 'text-[var(--color-danger)]'
+                  : 'text-[var(--color-text-muted)]',
+              )}
+            >
+              {username && !valid
+                ? tr(messages, 'digital.usernameInvalid')
+                : tr(messages, 'digital.usernameHint')}
+            </p>
+          </div>
+
+          {/* Narx */}
+          <div className="flex items-center justify-between rounded-2xl bg-[var(--color-bg)] px-4 py-3">
+            <span className="text-sm text-[var(--color-text-muted)]">
+              {tr(messages, 'digital.price')}
+            </span>
+            <span className="text-base font-bold text-[var(--color-primary)]">
+              {formatMoney(product.retailPrice, locale)}
+            </span>
+          </div>
+
+          <Button
+            fullWidth
+            loading={buy.isPending}
+            disabled={!valid}
+            onClick={() => buy.mutate()}
+          >
+            {tr(messages, 'digital.confirm')}
+          </Button>
+        </div>
+      ) : null}
+    </Sheet>
+  );
+}

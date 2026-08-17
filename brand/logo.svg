@@ -1,0 +1,32 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="vg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8B5CF6"/>
+      <stop offset="0.55" stop-color="#7C3AED"/>
+      <stop offset="1" stop-color="#22D3EE"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.42" cy="0.34" r="0.65">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="star-shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#3B0A6E" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <!-- gradient rounded square -->
+  <rect width="512" height="512" rx="128" fill="url(#vg)"/>
+  <!-- soft top-left light -->
+  <rect width="512" height="512" rx="128" fill="url(#glow)"/>
+
+  <!-- Vega 4-pointed star (sparkle) -->
+  <path
+    d="M256 38.4 C270.08 195.84 316.16 241.92 473.6 256 C316.16 270.08 270.08 316.16 256 473.6 C241.92 316.16 195.84 270.08 38.4 256 C195.84 241.92 241.92 195.84 256 38.4 Z"
+    fill="#ffffff"
+    filter="url(#star-shadow)"/>
+
+  <!-- secondary accent sparkle -->
+  <path
+    d="M398 120 C401.4 138.6 411.4 148.6 430 152 C411.4 155.4 401.4 165.4 398 184 C394.6 165.4 384.6 155.4 366 152 C384.6 148.6 394.6 138.6 398 120 Z"
+    fill="#ffffff" opacity="0.9"/>
+</svg>
