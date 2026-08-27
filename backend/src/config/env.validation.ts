@@ -49,6 +49,10 @@ class EnvSchema {
   @IsOptional() @IsString() ISTAR_API_KEY?: string;
   @IsOptional() @IsString() ISTAR_BASE_URL?: string;
   @IsOptional() @IsString() ISTAR_WALLET?: string;
+  // Telegram userbot — sovg'a yetkazish (my.telegram.org + login sessiyasi)
+  @IsOptional() @IsString() TG_API_ID?: string;
+  @IsOptional() @IsString() TG_API_HASH?: string;
+  @IsOptional() @IsString() TG_SESSION?: string;
   @IsOptional() @IsString() USD_TO_UZS?: string;
   @IsOptional() @IsString() MARKUP_PERCENT?: string;
 

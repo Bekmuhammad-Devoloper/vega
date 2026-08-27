@@ -468,7 +468,7 @@ export class TenantBotService implements OnModuleInit {
         }
       | {
           type: 'DIGITAL';
-          kind: 'STARS' | 'PREMIUM';
+          kind: 'STARS' | 'PREMIUM' | 'GIFT';
           orderNumber: string;
           price: number | string;
           username: string;
@@ -522,8 +522,14 @@ export class TenantBotService implements OnModuleInit {
           `⚡️ SMS kodi soniyalarda keladi · 24/7\n\n` +
           `🛍 <b>${shop}</b>`;
       } else {
-        const kindEmoji = review.kind === 'STARS' ? '⭐' : '👑';
-        const kindWord = review.kind === 'STARS' ? 'Telegram Stars' : 'Telegram Premium';
+        const kindEmoji =
+          review.kind === 'STARS' ? '⭐' : review.kind === 'GIFT' ? '🎁' : '👑';
+        const kindWord =
+          review.kind === 'STARS'
+            ? 'Telegram Stars'
+            : review.kind === 'GIFT'
+              ? "Telegram sovg'asi"
+              : 'Telegram Premium';
         text =
           `✅ <b>${botHandle}</b> dan yangi ${kindEmoji} <b>${esc(review.label)}</b> olindi!\n\n` +
           `👤 Xaridor: ${this.maskUsername(review.username)}\n` +

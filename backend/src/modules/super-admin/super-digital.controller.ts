@@ -80,6 +80,13 @@ export class SuperDigitalController {
     return this.digital.deliveryStatus();
   }
 
+  /** Sovg'a katalogini Telegram'dan tortib yangilash (userbot orqali). */
+  @Post('gifts/sync')
+  @PlatformRoles('FINANCE')
+  syncGifts() {
+    return this.digital.syncGiftCatalog();
+  }
+
   /** Kutilayotgan (yetkazilmagan) Stars/Premium buyurtmalar. */
   @Get('orders')
   pending() {

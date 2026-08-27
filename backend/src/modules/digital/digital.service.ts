@@ -14,6 +14,7 @@ import { CatalogService } from '../catalog/catalog.service';
 import { SmmProvider } from '../providers/smm.provider';
 import { TelegramGiftProvider } from '../providers/telegram-gift.provider';
 import { IstarProvider } from '../providers/istar.provider';
+import { TelegramUserbotProvider } from '../providers/telegram-userbot.provider';
 
 /// Stars/Premium oqimi: reseller yoqadi + narx qo'yadi -> mijoz @username bilan
 /// sotib oladi (retail balansidan) -> reseller hamyonidan ulgurji yechiladi ->
@@ -33,6 +34,7 @@ export class DigitalService {
     private readonly smm: SmmProvider,
     private readonly tgGift: TelegramGiftProvider,
     private readonly istar: IstarProvider,
+    private readonly userbot: TelegramUserbotProvider,
   ) {}
 
   /** iStar buyurtmalari providerOrderId'da shu prefiks bilan saqlanadi. */
@@ -52,7 +54,7 @@ export class DigitalService {
   async storefront(tenantId: string) {
     const t = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { starsEnabled: true, premiumEnabled: true },
+      select: { starsEnabled: true, premiumEnabled: true, giftsEnabled: true },
     });
     const offers = await this.prisma.digitalOffer.findMany({
       where: { tenantId, isActive: true, digitalProduct: { isActive: true } },
@@ -71,8 +73,10 @@ export class DigitalService {
     return {
       starsEnabled: !!t?.starsEnabled,
       premiumEnabled: !!t?.premiumEnabled,
+      giftsEnabled: !!t?.giftsEnabled,
       stars: t?.starsEnabled ? pick(DigitalKind.STARS) : [],
       premium: t?.premiumEnabled ? pick(DigitalKind.PREMIUM) : [],
+      gifts: t?.giftsEnabled ? pick(DigitalKind.GIFT) : [],
     };
   }
 
@@ -118,11 +122,12 @@ export class DigitalService {
 
     const t = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { starsEnabled: true, premiumEnabled: true },
+      select: { starsEnabled: true, premiumEnabled: true, giftsEnabled: true },
     });
     if (
       (kind === DigitalKind.STARS && !t?.starsEnabled) ||
-      (kind === DigitalKind.PREMIUM && !t?.premiumEnabled)
+      (kind === DigitalKind.PREMIUM && !t?.premiumEnabled) ||
+      (kind === DigitalKind.GIFT && !t?.giftsEnabled)
     ) {
       throw new BadRequestException("Bu xizmat hozircha o'chirilgan");
     }
@@ -196,6 +201,13 @@ export class DigitalService {
       amount: number;
     },
   ): Promise<void> {
+    // SOVG'A — faqat userbot yetkaza oladi (iStar/SMM da sovg'a yo'q),
+    // shuning uchun boshqa yo'llarga tushirmaymiz.
+    if (kind === DigitalKind.GIFT) {
+      await this.trySendGift(orderId, username, product.providerServiceId);
+      return;
+    }
+
     // 1) iStar — eng arzon va ikkala mahsulotni ham qamraydi.
     if (await this.tryIstar(orderId, username, kind, product.amount)) return;
     // 2) Premium uchun rasmiy Bot API (botda Stars bo'lsa).
@@ -210,6 +222,43 @@ export class DigitalService {
     }
     // 3) SMM panel.
     await this.autoPlaceOrder(orderId, username, product);
+  }
+
+  /**
+   * Telegram sovg'asini userbot orqali yuboradi. Muvaffaqiyat -> darhol
+   * FULFILLED. Bo'lmasa PENDING qoladi va dev panel qo'lda yetkazadi.
+   * Sovg'aning Telegram id'si mahsulotning `providerServiceId` maydonida.
+   */
+  private async trySendGift(
+    orderId: string,
+    username: string,
+    giftId: string | null,
+  ): Promise<boolean> {
+    if (!this.userbot.isConfigured()) {
+      this.logger.log(`Digital ${orderId}: userbot sozlanmagan — qo'lda`);
+      return false;
+    }
+    if (!giftId) {
+      this.logger.warn(
+        `Digital ${orderId}: mahsulotda sovg'a id yo'q (providerServiceId) — qo'lda`,
+      );
+      return false;
+    }
+    try {
+      const res = await this.userbot.sendGift(
+        username,
+        giftId,
+        'Xaridingiz uchun rahmat!',
+      );
+      if (!res.ok) return false;
+      await this.fulfill(orderId, 'auto-userbot', `Avto-yetkazildi (sovg'a)`);
+      return true;
+    } catch (e) {
+      this.logger.warn(
+        `Digital ${orderId} sovg'a xato: ${(e as Error).message}`,
+      );
+      return false;
+    }
   }
 
   /**
@@ -546,7 +595,76 @@ export class DigitalService {
         premiumCost: { 3: 1000, 6: 1500, 12: 2500 },
       },
       smm: { configured: this.smm.isConfigured() },
+      userbot: {
+        configured: this.userbot.isConfigured(),
+        starBalance: await this.userbot.starBalance(),
+      },
     };
+  }
+
+  /**
+   * Telegram'dagi sovg'alar katalogini tortib, DigitalProduct'larga yozadi.
+   * Sovg'aning Telegram id'si `providerServiceId` da saqlanadi — yetkazishda
+   * aynan shu ishlatiladi. Tugab qolgan (soldOut) sovg'alar o'chiriladi.
+   *
+   * Ulgurji narx: stars × bitta Stars tannarxi × (1 + marja).
+   * Tannarx `GIFT_STAR_USD` (default 0.0158 = Fragment $0.015 + iStar 5%).
+   */
+  async syncGiftCatalog() {
+    if (!this.userbot.isConfigured()) {
+      throw new BadRequestException(
+        "Userbot sozlanmagan (TG_API_ID / TG_API_HASH / TG_SESSION)",
+      );
+    }
+    const starUsd = Number(this.config.get('GIFT_STAR_USD') ?? 0.0158);
+    const markup = Number(this.config.get('GIFT_MARKUP_PERCENT') ?? 20);
+
+    const gifts = await this.userbot.listGifts();
+    let created = 0,
+      updated = 0,
+      disabled = 0;
+
+    for (const g of gifts) {
+      const wholesaleUsd = Number(
+        (g.stars * starUsd * (1 + markup / 100)).toFixed(4),
+      );
+      const label = `${g.emoji ?? '🎁'} ${g.stars} Stars`;
+      // amount = Stars narxi -> @@unique([kind, amount]) bilan mos keladi
+      const existing = await this.prisma.digitalProduct.findUnique({
+        where: { kind_amount: { kind: DigitalKind.GIFT, amount: g.stars } },
+      });
+      if (existing) {
+        await this.prisma.digitalProduct.update({
+          where: { id: existing.id },
+          data: {
+            label,
+            wholesaleUsd,
+            providerServiceId: g.giftId,
+            isActive: !g.soldOut,
+          },
+        });
+        if (g.soldOut) disabled++;
+        else updated++;
+      } else {
+        if (g.soldOut) continue; // tugaganini qo'shmaymiz
+        await this.prisma.digitalProduct.create({
+          data: {
+            kind: DigitalKind.GIFT,
+            label,
+            amount: g.stars,
+            wholesaleUsd,
+            providerServiceId: g.giftId,
+            position: g.stars,
+            isActive: true,
+          },
+        });
+        created++;
+      }
+    }
+    this.logger.log(
+      `Sovg'a katalogi: +${created} yangi, ${updated} yangilandi, ${disabled} o'chirildi`,
+    );
+    return { total: gifts.length, created, updated, disabled };
   }
 
   async fulfill(id: string, adminId: string, note?: string) {

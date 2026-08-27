@@ -376,6 +376,7 @@ model Tenant {
   // Do'konда qaysi turlar yoqilgan (reseller admin panelда yoqadi)
   starsEnabled   Boolean @default(false)
   premiumEnabled Boolean @default(false)
+  giftsEnabled   Boolean @default(false)
 
   // BIR MARTALIK faollashtirish to'lovi
   tariffPlan       TariffPlan @default(FREE) // feature darajasi (bir martalik sotib olinadi)
@@ -903,6 +904,7 @@ model PendingReferral {
 enum DigitalKind {
   STARS
   PREMIUM
+  GIFT // Telegram sovg'asi (yurakcha, gul...) — userbot orqali yetkaziladi
 }
 
 enum DigitalOrderStatus {
