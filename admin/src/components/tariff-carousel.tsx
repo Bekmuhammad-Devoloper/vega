@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import type { TariffOption } from '@/lib/endpoints';
+import { tariffPrice } from '@/lib/endpoints';
 
 function formatPrice(v: number): string {
   return v === 0 ? 'Bepul' : `${v.toLocaleString('ru-RU')} so'm`;
@@ -145,8 +146,8 @@ export function TariffCarousel({
                   </div>
 
                   <p className="text-2xl font-extrabold tracking-tight leading-none">
-                    {formatPrice(t.priceMonthly)}
-                    {t.priceMonthly > 0 && (
+                    {formatPrice(tariffPrice(t))}
+                    {tariffPrice(t) > 0 && (
                       <span className="text-sm font-medium text-[var(--color-text-muted)]"> bir martalik</span>
                     )}
                   </p>

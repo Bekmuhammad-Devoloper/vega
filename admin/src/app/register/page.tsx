@@ -23,6 +23,7 @@ import {
   type LoginMode,
   type PaymentInfo,
   type TariffOption,
+  tariffPrice,
 } from '@/lib/endpoints';
 
 interface TgUser {
@@ -364,8 +365,8 @@ export default function RegisterPage() {
                 <p className="text-xs text-[var(--color-text-muted)]">Tanlangan tarif</p>
                 <p className="font-bold">{selectedTariff.label}</p>
                 <p className="text-2xl font-extrabold tracking-tight mt-0.5">
-                  {selectedTariff.priceMonthly.toLocaleString('ru-RU')}
-                  <span className="text-sm font-medium text-[var(--color-text-muted)]"> so'm/oy</span>
+                  {tariffPrice(selectedTariff).toLocaleString('ru-RU')}
+                  <span className="text-sm font-medium text-[var(--color-text-muted)]"> so'm</span>
                 </p>
               </div>
             )}

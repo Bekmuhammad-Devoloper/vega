@@ -105,7 +105,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
         await bot.api.setChatMenuButton({
           menu_button: {
             type: 'web_app',
-            text: '⚡ Mening do\'konim',
+            text: '⚡ Do\'konim',
             web_app: { url: adminUrl },
           },
         });

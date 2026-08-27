@@ -11,6 +11,7 @@ import {
   apiUploadUpgradeReceipt,
   type PaymentInfo,
   type TariffOption,
+  tariffPrice,
 } from '@/lib/endpoints';
 
 function fmt(v: number): string {
@@ -82,7 +83,7 @@ export function TariffUpgrade({
         {all.map((t) => {
           const isCurrent = t.value === currentPlan;
           const isFree = t.value === 'FREE';
-          const price = isFree ? 0 : t.priceMonthly;
+          const price = isFree ? 0 : tariffPrice(t);
           return (
             <div key={t.value} className="rounded-2xl border border-[var(--color-border)] p-4">
               <div className="mb-1 flex items-start justify-between gap-2">
@@ -150,7 +151,7 @@ export function TariffUpgrade({
       <div className="rounded-2xl bg-[var(--color-primary)]/[0.05] border border-[var(--color-primary)]/20 p-4">
         <p className="text-xs text-[var(--color-text-muted)]">Tanlangan tarif</p>
         <p className="font-bold">{plan?.label}</p>
-        <p className="text-xl font-extrabold">{plan ? fmt(plan.priceMonthly) : ''}</p>
+        <p className="text-xl font-extrabold">{plan ? fmt(tariffPrice(plan)) : ''}</p>
         {plan?.serverMonthly ? (
           <p className="text-xs font-medium text-[var(--color-text-muted)]">
             + server: {plan.serverMonthly.toLocaleString('ru-RU')} so&apos;m/oy

@@ -133,8 +133,20 @@ export interface TariffOption {
   trialDays: number;
   /** Server (hosting) uchun oylik to'lov (so'm) — tarif narxidan alohida. */
   serverMonthly?: number;
+  /**
+   * HAQIQIY bir martalik narx (TariffConfig'dan). Backend aynan SHUNI undiradi
+   * (referral.service.planPrice). `priceMonthly` — eski statik zaxira qiymat,
+   * u ko'rsatilsa mijoz boshqa narx ko'radi. Doim `tariffPrice()` ishlating.
+   */
+  oneTimePrice?: number;
   features: string[];
 }
+
+/** Tarifning ko'rsatiladigan narxi — backend undiradigan narx bilan bir xil. */
+export const tariffPrice = (t: {
+  oneTimePrice?: number;
+  priceMonthly: number;
+}): number => (typeof t.oneTimePrice === 'number' ? t.oneTimePrice : t.priceMonthly);
 export interface BotCheckResult {
   ok: boolean;
   username?: string;
