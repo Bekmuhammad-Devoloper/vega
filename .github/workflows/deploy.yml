@@ -1,0 +1,79 @@
+name: Deploy
+
+# `saas` branchiga push -> tekshiruv -> serverga deploy.
+# Qo'lda ishga tushirish uchun: Actions -> Deploy -> Run workflow
+on:
+  push:
+    branches: [saas]
+    paths-ignore: ['**.md', 'docs/**']
+  workflow_dispatch:
+    inputs:
+      skip_frontend:
+        description: "Frontendlarni qayta qurmaslik (tezroq)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false      # deploy yarmida uzilmasin
+
+jobs:
+  # ── 1) Darvoza: buzuq kod serverga chiqmasin ──────────────────
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Bog'liqliklar
+        working-directory: backend
+        run: npm ci --no-audit --no-fund
+
+      - name: Prisma generate
+        working-directory: backend
+        run: npx prisma generate
+
+      - name: Tip tekshiruvi
+        working-directory: backend
+        run: npx tsc --noEmit -p tsconfig.json
+
+      - name: Build
+        working-directory: backend
+        run: npx nest build
+
+  # ── 2) Deploy: faqat tekshiruv o'tsa ─────────────────────────
+  deploy:
+    needs: check
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: SSH kalitini o'rnatish
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -p "${{ secrets.SSH_PORT || 22 }}" -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Serverda deploy
+        env:
+          SKIP_FE: ${{ inputs.skip_frontend == false && '0' || '1' }}
+        run: |
+          ssh -i ~/.ssh/id_deploy -p "${{ secrets.SSH_PORT || 22 }}" \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "SKIP_FRONTEND=$SKIP_FE bash /opt/vega/deploy.sh saas"
+
+      - name: Sog'liq tekshiruvi
+        run: |
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' \
+              "${{ secrets.HEALTH_URL || 'https://api.vega.yuksalish.dev/api/catalog/services' }}" || echo 000)
+            echo "urinish $i: HTTP $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 6
+          done
+          echo "::error::Sog'liq tekshiruvi o'tmadi — pm2 loglarini ko'ring"
+          exit 1
