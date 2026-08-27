@@ -26,8 +26,16 @@ log "  $OLD_SHA -> $NEW_SHA"
 
 cd "$APP_DIR/backend"
 
+# DIQQAT: `npm ci` node_modules'ni BUTUNLAY o'chirib qayta o'rnatadi. Ishlab
+# turgan jarayon shu paytda modul yuklamoqchi bo'lsa — halok bo'ladi, pm2 uni
+# qayta ko'taradi, u yana halok bo'ladi... `max_restarts` (default 15) tugasa
+# pm2 taslim bo'ladi va ilova O'LIK qoladi. Shuning uchun o'rnatishdan oldin
+# to'xtatamiz. Qisqa uzilish — abadiy o'likdan yaxshi.
+log "Jarayon to'xtatilmoqda (o'rnatish uchun)"
+pm2 stop "$PM2_API" >/dev/null 2>&1 || true
+
 log "Bog'liqliklar"
-# DIQQAT: --omit=dev ISHLATMANG. prisma, @nestjs/cli, typescript va hatto
+# --omit=dev ISHLATMANG. prisma, @nestjs/cli, typescript va hatto
 # @prisma/client ham devDependencies'da — ularsiz `npx prisma` internetdan
 # eng yangi (mos kelmaydigan) versiyani tortadi va build yiqiladi.
 npm ci --no-audit --no-fund
@@ -46,8 +54,12 @@ fi
 log "Build"
 ./node_modules/.bin/nest build
 
-log "pm2 reload: $PM2_API"
-pm2 reload "$PM2_API" --update-env
+log "pm2 start: $PM2_API"
+# `start` — to'xtatilgan jarayonni ko'taradi; allaqachon ishlayotgan bo'lsa
+# reload bilan yangilaymiz. Beqaror qayta ishga tushishlar hisoblagichini ham
+# tozalaymiz, aks holda keyingi deploy'da limit tezroq tugaydi.
+pm2 start "$PM2_API" --update-env >/dev/null 2>&1 || pm2 reload "$PM2_API" --update-env
+pm2 reset "$PM2_API" >/dev/null 2>&1 || true
 sleep 3
 pm2 describe "$PM2_API" | grep -E "status|restart" || true
 
