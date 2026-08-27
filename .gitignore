@@ -103,6 +103,9 @@ pnpm-debug.log*
 **/uploads/
 public/uploads/
 backups/
+# DIQQAT: yuqoridagi `**/uploads/` NestJS uploads MODULINI ham
+# o'chirib yuborardi (build serverda yiqilardi) — qaytarib kiritamiz.
+!backend/src/modules/uploads/
 
 # ─── IDE va OS chiqindilari ───────────────────────────────────────
 .vscode/
