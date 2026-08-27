@@ -66,6 +66,16 @@ jobs:
             "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
             "SKIP_FRONTEND=$SKIP_FE bash /opt/vega/deploy.sh saas"
 
+      - name: Serverda ayni shu commit ishlayaptimi
+        run: |
+          REMOTE=$(ssh -i ~/.ssh/id_deploy -p "${{ secrets.SSH_PORT || 22 }}"             "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}"             'git -C /opt/vega/app rev-parse HEAD')
+          echo "kutilgan: ${{ github.sha }}"
+          echo "serverda: $REMOTE"
+          if [ "$REMOTE" != "${{ github.sha }}" ]; then
+            echo "::error::Deploy o'tdi deb ko'rsatdi, lekin serverda BOSHQA commit turibdi"
+            exit 1
+          fi
+
       - name: Sog'liq tekshiruvi
         run: |
           for i in $(seq 1 10); do
