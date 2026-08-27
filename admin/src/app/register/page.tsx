@@ -20,6 +20,7 @@ import {
   apiSellerUploadLogo,
   apiSellerValidateBot,
   apiTelegramLogin,
+  apiLogout,
   type LoginMode,
   type PaymentInfo,
   type TariffOption,
@@ -142,6 +143,15 @@ export default function RegisterPage() {
 
       // Avval to'g'ridan-to'g'ri login — EGASI yoki JAMOA a'zosi (creator/moderator/
       // manager) bo'lsa shu yerda kiradi. Faqat yangi foydalanuvchi onboarding'ga tushadi.
+      // XAVFSIZLIK: Telegram Mini App'da bir qurilmadagi barcha akkaunt bitta
+      // WebView xotirasini bo'lishadi. Eski `admin_at` (localStorage) va
+      // `refresh_token` (cookie) saqlanib qolsa, BOSHQA akkaunt bilan kirganda
+      // 401 -> /auth/refresh eski egasining sessiyasini tiklab yuboradi va
+      // foydalanuvchi begona do'konni ko'radi. Shuning uchun Telegram bilan
+      // kirishdan OLDIN eski sessiyani butunlay tozalaymiz.
+      setAccessToken(null);
+      await apiLogout().catch(() => undefined); // cookie'ni ham o'chiradi
+
       try {
         const res = await apiTelegramLogin(id, mode);
         if (cancelled) return;
