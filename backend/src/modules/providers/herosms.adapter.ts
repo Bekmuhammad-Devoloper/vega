@@ -105,25 +105,44 @@ export class HeroSmsAdapter implements ProviderAdapter {
       );
     }
 
+    // KLASSIK format: "ACCESS_NUMBER:<id>:<telefon>". Ba'zi SMS-Activate
+    // uslubidagi panellar (masalan Tiger SMS) getNumberV2 dan ham shuni
+    // qaytarishi mumkin — JSON'dan oldin shuni tekshiramiz.
+    if (text.startsWith('ACCESS_NUMBER')) {
+      const [, id, phone] = text.split(':');
+      if (!id || !phone) throw new Error(`Xatolik: ${text}`);
+      return {
+        providerId: id.trim(),
+        phone: phone.trim().startsWith('+') ? phone.trim() : '+' + phone.trim(),
+        costUsd: 0, // klassik javobda narx yo'q — getPrices bilan hisoblanadi
+        expiresAt: new Date(Date.now() + 20 * 60 * 1000),
+      };
+    }
+
     let data: {
       activationId?: number | string;
       phoneNumber?: string;
       activationCost?: string | number;
+      // V2 imlo variantlari (panelga qarab farq qiladi)
+      id?: number | string;
+      phone?: string;
+      cost?: string | number;
     };
     try {
       data = JSON.parse(text);
     } catch {
       throw new Error(`Xatolik: ${text}`);
     }
-    if (!data.activationId || !data.phoneNumber) {
+    const activationId = data.activationId ?? data.id;
+    const phoneNumber = data.phoneNumber ?? data.phone;
+    if (!activationId || !phoneNumber) {
       throw new Error(`Xatolik: ${text}`);
     }
+    const ph = String(phoneNumber);
     return {
-      providerId: String(data.activationId),
-      phone: data.phoneNumber.startsWith('+')
-        ? data.phoneNumber
-        : '+' + data.phoneNumber,
-      costUsd: Number(data.activationCost) || 0,
+      providerId: String(activationId),
+      phone: ph.startsWith('+') ? ph : '+' + ph,
+      costUsd: Number(data.activationCost ?? data.cost) || 0,
       expiresAt: new Date(Date.now() + 20 * 60 * 1000),
     };
   }
