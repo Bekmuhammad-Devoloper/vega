@@ -50,15 +50,18 @@ export class TelegramPaymentsListener implements OnModuleInit {
     const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) return;
 
-    // Bir martalik faollashtirish modeli: do'kon o'z tanlagan tarifda (tariffPlan)
-    // faollashtirish to'lovini amalga oshiradi — pending tarif tushunchasi yo'q.
-    const plan = tenant.tariffPlan;
+    // Tarif FAQAT shu yerda — admin tasdiqlagach — o'zgaradi. Chek yuborilganda
+    // tanlov `pendingPlan`da saqlangan bo'ladi; u bo'lmasa (eski do'konlar)
+    // joriy tarif uchun to'lov qilinyapti deb hisoblaymiz.
+    const plan = tenant.pendingPlan ?? tenant.tariffPlan;
 
     if (action === 'approve') {
       const now = new Date();
       await this.prisma.tenant.update({
         where: { id: tenantId },
         data: {
+          tariffPlan: plan, // kutilayotgan tarif endi kuchga kiradi
+          pendingPlan: null,
           isActivated: true,
           activationPaidAt: now,
           status: 'ACTIVE',
@@ -92,7 +95,16 @@ export class TelegramPaymentsListener implements OnModuleInit {
         );
       }
     } else {
-      // Rad — do'kon PENDING_PAYMENT holatida qoladi, egasiga xabar beramiz.
+      // Rad — kutilayotgan tarif bekor qilinadi, do'kon oldingi holatiga qaytadi.
+      // Ilgari faollashtirilgan bo'lsa ACTIVE'da qoladi (eski tarifi bilan
+      // ishlayveradi), aks holda to'lov kutish holatida turadi.
+      await this.prisma.tenant.update({
+        where: { id: tenantId },
+        data: {
+          pendingPlan: null,
+          status: tenant.isActivated ? 'ACTIVE' : 'PENDING_PAYMENT',
+        },
+      });
       if (tenant.ownerTelegramId) {
         await this.bot.sendDirectMessage(
           tenant.ownerTelegramId,

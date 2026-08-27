@@ -380,6 +380,10 @@ model Tenant {
 
   // BIR MARTALIK faollashtirish to'lovi
   tariffPlan       TariffPlan @default(FREE) // feature darajasi (bir martalik sotib olinadi)
+  /// Chek yuborilgan, TASDIQLANISHI kutilayotgan tarif. Faqat admin
+  /// tasdiqlagach `tariffPlan`ga ko'chiriladi va tozalanadi. Shu maydon
+  /// borligi uchun tarif tanlash yoki bekor qilish jonli tarifga tegmaydi.
+  pendingPlan      TariffPlan?
   isActivated      Boolean    @default(false)
   activationPaidAt DateTime?
   activationAmount Decimal?   @db.Decimal(12, 2)

@@ -65,9 +65,13 @@ export function TariffUpgrade({
       toast.error('Chek rasmini tanlang');
       return;
     }
+    if (!plan) {
+      toast.error('Avval tarifni tanlang');
+      return;
+    }
     setBusy(true);
     try {
-      await apiUploadUpgradeReceipt(receipt);
+      await apiUploadUpgradeReceipt(receipt, plan.value);
       setSent(true);
       toast.success('Chek yuborildi! Tasdiqlashni kuting.');
     } catch (e) {

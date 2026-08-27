@@ -949,17 +949,19 @@ export class AdminStoreController {
       return { ok: true, fullyCovered: true, applied };
     }
 
-    // Qisman yoki balanssiz — balans ushlanadi, qolgani chek orqali to'lanadi.
-    // To'lov kutilmoqda: status PENDING_PAYMENT, tasdiqlangach faollashtiriladi.
-    await this.prisma.tenant.update({
-      where: { id: admin.tenantId },
-      data: {
-        status: 'PENDING_PAYMENT',
-        activationAmount: price,
-        referralBalance: effectiveBalance - applied,
-      },
-    });
-    return { ok: true, payment: PAYMENT_INFO, applied, remaining: price - applied };
+    // Qisman yoki balanssiz — FAQAT to'lov ma'lumotini qaytaramiz.
+    // MUHIM: bu yerda do'kon holati O'ZGARMAYDI. Ilgari shu joyda status
+    // PENDING_PAYMENT ga o'tkazilardi va foydalanuvchi tarifni shunchaki
+    // ko'rish uchun bosib, keyin bekor qilsa ham do'kon o'sha holatda
+    // qolib ketardi. Endi holat faqat CHEK YUBORILGANDA o'zgaradi
+    // (`upgrade/receipt`), tarifning o'zi esa faqat ADMIN TASDIQLAGACH.
+    return {
+      ok: true,
+      payment: PAYMENT_INFO,
+      applied,
+      remaining: price - applied,
+      price,
+    };
   }
 
   /** To'lov chekini yuklab, admin chatiga tasdiqlash xabarini yuboradi. */
@@ -978,10 +980,31 @@ export class AdminStoreController {
         .build({ fileIsRequired: true }),
     )
     file: Express.Multer.File,
+    @Body('plan') rawPlan?: string,
   ) {
     if (!admin.tenantId) throw new BadRequestException("Do'kon topilmadi");
-    const t = await this.prisma.tenant.findUnique({ where: { id: admin.tenantId } });
-    if (!t || t.status !== 'PENDING_PAYMENT') throw new BadRequestException("To'lov kutilayotgan tarif yo'q");
+    const t0 = await this.prisma.tenant.findUnique({ where: { id: admin.tenantId } });
+    if (!t0) throw new BadRequestException("Do'kon topilmadi");
+
+    // Qaysi tarif uchun chek yuborilyapti. Berilmasa — mavjud kutilayotgan
+    // yoki joriy tarif (eski mijozlar bilan moslik uchun).
+    const plan = (rawPlan?.trim() || t0.pendingPlan || t0.tariffPlan) as TariffPlan;
+    if (!Object.values(TariffPlan).includes(plan) || plan === TariffPlan.FREE) {
+      throw new BadRequestException("Tarif tanlanmagan");
+    }
+    const price = await this.referral.planPrice(plan);
+
+    // Holat AYNAN SHU YERDA o'zgaradi — foydalanuvchi haqiqatan to'lab,
+    // chek yubordi. Tarifning o'zi hali tegilmaydi: u `pendingPlan`da turadi
+    // va faqat admin tasdiqlagach `tariffPlan`ga ko'chadi.
+    const t = await this.prisma.tenant.update({
+      where: { id: admin.tenantId },
+      data: {
+        pendingPlan: plan,
+        activationAmount: price,
+        status: 'PENDING_PAYMENT',
+      },
+    });
 
     const caption = buildPaymentCaption(t, 'Tarif yangilash — tasdiqlash kerak');
 

@@ -392,9 +392,15 @@ export const apiUpgradeTariff = (tariffPlan: string, billingPeriod: 'monthly' | 
     method: 'POST',
     body: { tariffPlan, billingPeriod },
   });
-export const apiUploadUpgradeReceipt = (file: File) => {
+/**
+ * Chek yuborish. `plan` MAJBURIY: do'kon holati (va keyin tarifi) aynan shu
+ * chaqiruvdan keyin o'zgaradi — tarif tanlashning o'zi hech narsani
+ * o'zgartirmaydi.
+ */
+export const apiUploadUpgradeReceipt = (file: File, plan: string) => {
   const fd = new FormData();
   fd.append('file', file);
+  fd.append('plan', plan);
   return api<{ ok: boolean }>('/admin/store/upgrade/receipt', { method: 'POST', formData: fd });
 };
 export const apiSetStoreBot = (botToken: string) =>
