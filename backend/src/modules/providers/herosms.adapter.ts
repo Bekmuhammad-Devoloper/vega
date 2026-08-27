@@ -53,6 +53,41 @@ export class HeroSmsAdapter implements ProviderAdapter {
     return text.trim();
   }
 
+  /**
+   * Butun zaxira xaritasi BITTA so'rovda: davlat kodi -> zaxirasi bor xizmatlar.
+   * Vitrinada har taklif uchun alohida so'rov yubormaslik uchun (50 taklif =
+   * 50 so'rov bo'lib ketardi). Javob ~1MB, shuning uchun 3 daqiqa keshlanadi.
+   */
+  private stockCache: { at: number; map: Map<string, Set<string>> } | null = null;
+
+  async availableMap(): Promise<Map<string, Set<string>>> {
+    const now = Date.now();
+    if (this.stockCache && now - this.stockCache.at < 3 * 60 * 1000) {
+      return this.stockCache.map;
+    }
+    try {
+      const text = await this.api('getPrices');
+      const data = JSON.parse(text) as Record<
+        string,
+        Record<string, { count?: number }>
+      >;
+      const map = new Map<string, Set<string>>();
+      for (const [country, services] of Object.entries(data ?? {})) {
+        const set = new Set<string>();
+        for (const [svc, info] of Object.entries(services ?? {})) {
+          if ((info?.count ?? 0) > 0) set.add(svc);
+        }
+        if (set.size) map.set(country, set);
+      }
+      if (map.size) this.stockCache = { at: now, map };
+      return map;
+    } catch (e) {
+      this.logger.warn(`availableMap: ${String(e)}`);
+      // Xato bo'lsa eski keshni beramiz — vitrina to'satdan bo'shab qolmasin.
+      return this.stockCache?.map ?? new Map();
+    }
+  }
+
   async getPriceUsd(input: BuyInput): Promise<number | null> {
     const c = input.countryHeroCode;
     const s = input.serviceHeroCode;

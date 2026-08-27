@@ -21,7 +21,7 @@ export class ProvidersService {
 
   constructor(
     private readonly spider: SpiderAdapter,
-    hero: HeroSmsAdapter,
+    private readonly hero: HeroSmsAdapter,
     fragment: FragmentAdapter,
     mock: MockAdapter,
     private readonly config: ConfigService,
@@ -37,6 +37,38 @@ export class ProvidersService {
   /** SPIDER (Telegram) qo'llaydigan davlat ISO2 to'plami. */
   spiderSupportedIso2(): Promise<Set<string>> {
     return this.spider.supportedIso2();
+  }
+
+  /**
+   * (xizmat × davlat) hozir provayderda BOR-YO'QLIGI. Vitrina shu bilan
+   * filtrlanadi — zaxirasi tugagan yo'nalish mijoz botida ko'rinmaydi.
+   * Ikkala provayder ham butun ro'yxatni bitta so'rovda beradi va natija
+   * 3 daqiqa keshlanadi, shuning uchun bu chaqiruv arzon.
+   */
+  async isAvailable(
+    kind: ProviderKind,
+    input: { countryIso2?: string | null; countryHeroCode?: string | null; serviceHeroCode?: string | null },
+  ): Promise<boolean> {
+    try {
+      if (kind === ProviderKind.SPIDER) {
+        const iso = (input.countryIso2 ?? '').toUpperCase();
+        if (!iso) return false;
+        return (await this.spider.supportedIso2()).has(iso);
+      }
+      if (kind === ProviderKind.HEROSMS) {
+        const c = input.countryHeroCode;
+        const sv = input.serviceHeroCode;
+        if (!c || !sv) return false;
+        const map = await this.hero.availableMap();
+        // Kesh bo'sh bo'lsa (provayder javob bermadi) — yo'nalishni
+        // yashirmaymiz: xarid paytida baribir tekshiriladi.
+        if (map.size === 0) return true;
+        return map.get(c)?.has(sv) ?? false;
+      }
+    } catch {
+      return true; // shubhali holatda yashirmaymiz
+    }
+    return true;
   }
 
   adapter(kind: ProviderKind): ProviderAdapter {

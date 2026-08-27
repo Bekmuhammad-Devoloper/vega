@@ -7,7 +7,7 @@ import {
 import { Cron } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { NumberOrderStatus } from '@prisma/client';
+import { NumberOrderStatus, ProviderKind} from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { CatalogService } from '../catalog/catalog.service';
 import { ProvidersService } from '../providers/providers.service';
@@ -96,13 +96,32 @@ export class NumbersService {
     return Math.round((usd * this.usdToUzs) / 100) * 100;
   }
 
-  /** Reseller do'konidagi mavjud takliflar (mijoz storefront'i). */
-  storefront(tenantId: string) {
-    return this.prisma.resellerOffer.findMany({
+  /**
+   * Reseller do'konidagi takliflar (mijoz storefront'i).
+   * Provayderda AYNI PAYTDA zaxirasi yo'q yo'nalishlar CHIQARIB TASHLANADI —
+   * aks holda mijoz botda ko'rib, bosgach "mavjud emas" xatosini olardi.
+   * Zaxira ma'lumoti 3 daqiqa keshlanadi, shuning uchun bu qo'shimcha
+   * so'rovlarga olib kelmaydi.
+   */
+  async storefront(tenantId: string) {
+    const offers = await this.prisma.resellerOffer.findMany({
       where: { tenantId, isActive: true },
       include: { service: true, country: true },
       orderBy: [{ service: { position: 'asc' } }, { country: { position: 'asc' } }],
     });
+    const flags = await Promise.all(
+      offers.map((o) =>
+        this.providers.isAvailable(
+          o.service.telegramOnly ? ProviderKind.SPIDER : ProviderKind.HEROSMS,
+          {
+            countryIso2: o.country.iso2,
+            countryHeroCode: o.country.heroCode,
+            serviceHeroCode: o.service.heroCode,
+          },
+        ),
+      ),
+    );
+    return offers.filter((_, i) => flags[i]);
   }
 
   /** Mijozning buyurtmalari. */

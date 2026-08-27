@@ -75,10 +75,15 @@ export class SpiderAdapter implements ProviderAdapter {
     }
   }
 
-  /** SPIDER qo'llaydigan davlat ISO2 kodlari (30 daqiqa keshlanadi). */
+  /**
+   * SPIDER'da AYNI PAYTDA mavjud davlat ISO2 kodlari.
+   * SPIDER `getCountrys` faqat zaxirasi bor davlatlarni qaytaradi — ya'ni bu
+   * bir vaqtning o'zida "qo'llab-quvvatlanadi" va "hozir bor" degani.
+   * TTL qisqa (3 daqiqa): zaxira tugaganda vitrinada uzoq turib qolmasin.
+   */
   async supportedIso2(): Promise<Set<string>> {
     const now = Date.now();
-    if (this.countryCache && now - this.countryCache.at < 30 * 60 * 1000) {
+    if (this.countryCache && now - this.countryCache.at < 3 * 60 * 1000) {
       return this.countryCache.set;
     }
     try {
