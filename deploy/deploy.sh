@@ -27,20 +27,24 @@ log "  $OLD_SHA -> $NEW_SHA"
 cd "$APP_DIR/backend"
 
 log "Bog'liqliklar"
-npm ci --omit=dev --no-audit --no-fund
+# DIQQAT: --omit=dev ISHLATMANG. prisma, @nestjs/cli, typescript va hatto
+# @prisma/client ham devDependencies'da — ularsiz `npx prisma` internetdan
+# eng yangi (mos kelmaydigan) versiyani tortadi va build yiqiladi.
+npm ci --no-audit --no-fund
 
 log "Prisma"
-npx prisma generate
+# npx emas, lokal binar — versiya qat'iy package.json dan olinsin.
+./node_modules/.bin/prisma generate
 # Migratsiya fayllari bo'lsa qo'llanadi; bo'lmasa sxema push qilinadi.
 if [ -d prisma/migrations ] && [ -n "$(ls -A prisma/migrations 2>/dev/null)" ]; then
-  npx prisma migrate deploy
+  ./node_modules/.bin/prisma migrate deploy
 else
   echo "    migrations papkasi bo'sh — db push (ma'lumot yo'qotmaydi)"
-  npx prisma db push --skip-generate
+  ./node_modules/.bin/prisma db push --skip-generate
 fi
 
 log "Build"
-npx nest build
+./node_modules/.bin/nest build
 
 log "pm2 reload: $PM2_API"
 pm2 reload "$PM2_API" --update-env

@@ -70,7 +70,7 @@ jobs:
         run: |
           for i in $(seq 1 10); do
             code=$(curl -s -o /dev/null -w '%{http_code}' \
-              "${{ secrets.HEALTH_URL || 'https://api.vega.yuksalish.dev/api/catalog/services' }}" || echo 000)
+              "${{ secrets.HEALTH_URL || 'http://34.159.2.151/api/catalog/services' }}" || echo 000)
             echo "urinish $i: HTTP $code"
             [ "$code" = "200" ] && exit 0
             sleep 6
