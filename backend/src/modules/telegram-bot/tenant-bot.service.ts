@@ -578,7 +578,8 @@ export class TenantBotService implements OnModuleInit {
 
       let text: string;
       if (review.type === 'NUMBER') {
-        const emoji = review.serviceEmoji ? `${review.serviceEmoji} ` : '📱 ';
+        // Xizmat emojisi bazadan OLINMAYDI — e'londa doim bitta toza belgi turadi.
+        const emoji = '💙 ';
         text =
           `✅ <b>${botHandle}</b> dan yangi raqam olindi!\n\n` +
           `📱 Raqam: <code>${this.maskPhone(review.phone)}</code>\n` +
