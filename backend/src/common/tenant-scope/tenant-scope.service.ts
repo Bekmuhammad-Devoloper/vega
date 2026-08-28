@@ -32,6 +32,20 @@ export class TenantScopeService {
     return scope;
   }
 
+  /**
+   * Do'kon holati — `resolve()` faqat ACTIVE do'konni qaytargani uchun,
+   * chaqiruvchi "topilmadi" bilan "hali faollashmagan"ni ajrata olsin.
+   * Keshlanmaydi: holat o'zgarishi darhol ko'rinishi kerak.
+   */
+  async statusOf(slug?: string | null): Promise<string | null> {
+    if (!slug) return null;
+    const t = await this.prisma.tenant.findUnique({
+      where: { slug },
+      select: { status: true },
+    });
+    return t?.status ?? null;
+  }
+
   async tenantId(slug?: string | null): Promise<string | null> {
     return (await this.resolve(slug))?.tenantId ?? null;
   }

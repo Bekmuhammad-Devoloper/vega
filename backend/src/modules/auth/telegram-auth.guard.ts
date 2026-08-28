@@ -1,4 +1,11 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import type { User } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { InvalidInitDataError } from '@/common/helpers/telegram-init-data';
@@ -59,6 +66,22 @@ export class TelegramAuthGuard implements CanActivate {
     const scope = shopSlug ? await this.tenantScope.resolve(shopSlug) : null;
     req.tenantId = scope?.tenantId ?? null;
     const tenantBotToken = scope?.botToken ?? undefined;
+
+    // Do'kon slug'i berilgan, lekin ACTIVE emas -> `resolve()` null qaytaradi va
+    // biz platforma bot tokeniga tushib ketamiz. U holda resellerning O'Z boti
+    // imzolagan initData mos kelmaydi va mijoz tushunarsiz "Invalid hash" oladi.
+    // Shuning uchun aniq sababni aytamiz.
+    if (shopSlug && !scope) {
+      const st = await this.tenantScope.statusOf(shopSlug);
+      if (!st) throw new NotFoundException("Do'kon topilmadi");
+      throw new ForbiddenException(
+        st === 'PENDING_PAYMENT'
+          ? "Do'kon hali faollashtirilmagan. Egasi tarif to'lovini yakunlashi kerak."
+          : st === 'SUSPENDED'
+            ? "Do'kon vaqtincha to'xtatilgan."
+            : "Do'kon hozircha mavjud emas.",
+      );
+    }
 
     // DEV mode: agar Telegram'dan tashqari brauzerda ochilgan bo'lsa,
     // initData yo'q va dev user ishlatiladi.
