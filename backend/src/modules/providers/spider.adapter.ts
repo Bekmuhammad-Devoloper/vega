@@ -17,6 +17,8 @@ export class SpiderAdapter implements ProviderAdapter {
   readonly kind = ProviderKind.SPIDER;
   private readonly logger = new Logger(SpiderAdapter.name);
   private countryCache: { at: number; set: Set<string> } | null = null;
+  /** Ayni damda ketayotgan so'rov — bir vaqtdagi chaqiruvlarni birlashtiradi. */
+  private countryInFlight: Promise<Set<string>> | null = null;
 
   constructor(private readonly config: ConfigService) {}
 
@@ -86,20 +88,31 @@ export class SpiderAdapter implements ProviderAdapter {
     if (this.countryCache && now - this.countryCache.at < 3 * 60 * 1000) {
       return this.countryCache.set;
     }
-    try {
-      const d = await this.api('getCountrys');
-      const groups = d?.result?.countries ?? {};
-      const set = new Set<string>();
-      for (const grp of Object.values(groups)) {
-        const g = grp as Record<string, unknown>;
-        for (const k of Object.keys(g ?? {})) set.add(k.toUpperCase());
+    // Kesh sovuq bo'lganda vitrina bu metodni o'nlab marta BIR VAQTDA
+    // chaqiradi. Bitta so'rovni birlashtirmasak, har biri provayderga alohida
+    // so'rov yuborib, javob sekinlashadi yoki butunlay xato beradi.
+    if (this.countryInFlight) return this.countryInFlight;
+
+    this.countryInFlight = (async () => {
+      try {
+        const d = await this.api('getCountrys');
+        const groups = d?.result?.countries ?? {};
+        const set = new Set<string>();
+        for (const grp of Object.values(groups)) {
+          const g = grp as Record<string, unknown>;
+          for (const k of Object.keys(g ?? {})) set.add(k.toUpperCase());
+        }
+        if (set.size) this.countryCache = { at: Date.now(), set };
+        return set;
+      } catch (e) {
+        this.logger.warn(`supportedIso2: ${String(e)}`);
+        return this.countryCache?.set ?? new Set();
+      } finally {
+        this.countryInFlight = null;
       }
-      if (set.size) this.countryCache = { at: now, set };
-      return set;
-    } catch (e) {
-      this.logger.warn(`supportedIso2: ${String(e)}`);
-      return this.countryCache?.set ?? new Set();
-    }
+    })();
+
+    return this.countryInFlight;
   }
 
   async buy(input: BuyInput): Promise<BuyResult> {

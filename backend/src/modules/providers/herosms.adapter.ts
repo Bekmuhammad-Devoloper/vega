@@ -59,33 +59,49 @@ export class HeroSmsAdapter implements ProviderAdapter {
    * 50 so'rov bo'lib ketardi). Javob ~1MB, shuning uchun 3 daqiqa keshlanadi.
    */
   private stockCache: { at: number; map: Map<string, Set<string>> } | null = null;
+  /**
+   * Ayni damda ketayotgan so'rov. Kesh SOVUQ bo'lganda vitrina o'nlab taklif
+   * uchun bu metodni BIR VAQTDA chaqiradi; kesh esa javob kelgandan keyingina
+   * yoziladi, ya'ni hammasi provayderga alohida so'rov yuborardi (Cloudflare
+   * ularni cheklab, vitrina "Xatolik yuz berdi" bo'lib qolardi).
+   * Shu maydon orqali barcha chaqiruvlar BITTA so'rovni kutadi.
+   */
+  private stockInFlight: Promise<Map<string, Set<string>>> | null = null;
 
   async availableMap(): Promise<Map<string, Set<string>>> {
     const now = Date.now();
     if (this.stockCache && now - this.stockCache.at < 3 * 60 * 1000) {
       return this.stockCache.map;
     }
-    try {
-      const text = await this.api('getPrices');
-      const data = JSON.parse(text) as Record<
-        string,
-        Record<string, { count?: number }>
-      >;
-      const map = new Map<string, Set<string>>();
-      for (const [country, services] of Object.entries(data ?? {})) {
-        const set = new Set<string>();
-        for (const [svc, info] of Object.entries(services ?? {})) {
-          if ((info?.count ?? 0) > 0) set.add(svc);
+    if (this.stockInFlight) return this.stockInFlight;
+
+    this.stockInFlight = (async () => {
+      try {
+        const text = await this.api('getPrices');
+        const data = JSON.parse(text) as Record<
+          string,
+          Record<string, { count?: number }>
+        >;
+        const map = new Map<string, Set<string>>();
+        for (const [country, services] of Object.entries(data ?? {})) {
+          const set = new Set<string>();
+          for (const [svc, info] of Object.entries(services ?? {})) {
+            if ((info?.count ?? 0) > 0) set.add(svc);
+          }
+          if (set.size) map.set(country, set);
         }
-        if (set.size) map.set(country, set);
+        if (map.size) this.stockCache = { at: Date.now(), map };
+        return map;
+      } catch (e) {
+        this.logger.warn(`availableMap: ${String(e)}`);
+        // Xato bo'lsa eski keshni beramiz — vitrina to'satdan bo'shab qolmasin.
+        return this.stockCache?.map ?? new Map();
+      } finally {
+        this.stockInFlight = null;
       }
-      if (map.size) this.stockCache = { at: now, map };
-      return map;
-    } catch (e) {
-      this.logger.warn(`availableMap: ${String(e)}`);
-      // Xato bo'lsa eski keshni beramiz — vitrina to'satdan bo'shab qolmasin.
-      return this.stockCache?.map ?? new Map();
-    }
+    })();
+
+    return this.stockInFlight;
   }
 
   async getPriceUsd(input: BuyInput): Promise<number | null> {

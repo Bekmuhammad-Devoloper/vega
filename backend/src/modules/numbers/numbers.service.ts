@@ -109,19 +109,38 @@ export class NumbersService {
       include: { service: true, country: true },
       orderBy: [{ service: { position: 'asc' } }, { country: { position: 'asc' } }],
     });
-    const flags = await Promise.all(
-      offers.map((o) =>
-        this.providers.isAvailable(
-          o.service.telegramOnly ? ProviderKind.SPIDER : ProviderKind.HEROSMS,
-          {
-            countryIso2: o.country.iso2,
-            countryHeroCode: o.country.heroCode,
-            serviceHeroCode: o.service.heroCode,
-          },
-        ),
-      ),
-    );
-    return offers.filter((_, i) => flags[i]);
+    if (offers.length === 0) return offers;
+
+    // Zaxira ma'lumotini HAR TAKLIF UCHUN emas, BIR MARTA olamiz. Ilgari har
+    // taklif alohida `isAvailable()` chaqirardi va kesh sovuq bo'lganda
+    // o'nlab so'rov bir vaqtda provayderga urilib, vitrina sekinlashardi yoki
+    // butunlay "Xatolik yuz berdi" bo'lib qolardi.
+    const needsSpider = offers.some((o) => o.service.telegramOnly);
+    const needsHero = offers.some((o) => !o.service.telegramOnly);
+
+    const [spiderIso, heroMap] = await Promise.all([
+      needsSpider
+        ? this.providers.spiderSupportedIso2().catch(() => null)
+        : Promise.resolve(null),
+      needsHero
+        ? this.providers.heroAvailableMap().catch(() => null)
+        : Promise.resolve(null),
+    ]);
+
+    return offers.filter((o) => {
+      if (o.service.telegramOnly) {
+        // Provayder javob bermadi — yo'nalishni YASHIRMAYMIZ (xarid paytida
+        // baribir tekshiriladi). Vitrina bo'sh qolgandan ko'ra shu yaxshi.
+        if (!spiderIso || spiderIso.size === 0) return true;
+        const iso = (o.country.iso2 ?? '').toUpperCase();
+        return iso ? spiderIso.has(iso) : false;
+      }
+      if (!heroMap || heroMap.size === 0) return true;
+      const c = o.country.heroCode;
+      const sv = o.service.heroCode;
+      if (!c || !sv) return false;
+      return heroMap.get(c)?.has(sv) ?? false;
+    });
   }
 
   /** Mijozning buyurtmalari. */

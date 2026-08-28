@@ -40,6 +40,14 @@ export class ProvidersService {
   }
 
   /**
+   * HeroSMS zaxirasi: davlat kodi -> mavjud xizmat kodlari.
+   * Vitrina buni BIR MARTA olib, barcha takliflarni xotirada filtrlaydi.
+   */
+  heroAvailableMap(): Promise<Map<string, Set<string>>> {
+    return this.hero.availableMap();
+  }
+
+  /**
    * (xizmat × davlat) hozir provayderda BOR-YO'QLIGI. Vitrina shu bilan
    * filtrlanadi — zaxirasi tugagan yo'nalish mijoz botida ko'rinmaydi.
    * Ikkala provayder ham butun ro'yxatni bitta so'rovda beradi va natija
