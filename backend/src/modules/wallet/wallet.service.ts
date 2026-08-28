@@ -16,12 +16,19 @@ export class WalletService {
   private readonly PLATFORM_ID = 'platform';
 
   /** Platforma kartasi — reseller shu kartaga o'tkazib chek yuklaydi. */
+  /**
+   * Platforma kartasi — resellerlar hamyonini shu kartaga to'ldiradi.
+   *
+   * DIQQAT: ilgari bu yerda BOSHQA loyihadan qolgan karta raqami zaxira
+   * qiymat sifatida turardi. Sozlama qo'yilmasa, resellerlarning puli
+   * begona kartaga ketardi. Endi zaxira qiymat YO'Q — sozlanmagan bo'lsa
+   * bo'sh qaytadi va UI karta ko'rsatmaydi (jim xato o'rniga ko'rinadigan
+   * bo'shliq).
+   */
   topupCard(): { cardNumber: string; cardHolder: string; feePercent: number } {
     return {
-      cardNumber:
-        this.config.get<string>('PLATFORM_CARD_NUMBER') ?? '9860 1966 1899 4541',
-      cardHolder:
-        this.config.get<string>('PLATFORM_CARD_HOLDER') ?? 'Bekmuhammad Shakirjonov',
+      cardNumber: (this.config.get<string>('PLATFORM_CARD_NUMBER') ?? '').trim(),
+      cardHolder: (this.config.get<string>('PLATFORM_CARD_HOLDER') ?? '').trim(),
       // Karta orqali to'ldirishda ushlanadigan komissiya (%). Kripto — 0.
       feePercent: Number(this.config.get('TOPUP_CARD_FEE_PERCENT') ?? 2),
     };

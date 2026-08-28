@@ -146,6 +146,22 @@ export class WalletController {
       }
       caption += `💵 Summa: <b>${money(net)} so'm</b> (komissiyasiz)\n`;
     }
+    // Pul QAYSI hisobga tushgani — tasdiqlovchi chekni shu bilan solishtiradi.
+    if (method === 'CRYPTO') {
+      const cr = this.wallet.topupCrypto();
+      caption +=
+        `🏦 Qabul qiluvchi: <b>${cr.network}</b> <code>${cr.address}</code>
+`;
+    } else {
+      const cd = this.wallet.topupCard();
+      caption += cd.cardNumber
+        ? `🏦 Qaysi kartaga: <b>${cd.cardNumber}</b>
+` +
+          (cd.cardHolder ? `🧑 Karta egasi: <b>${cd.cardHolder}</b>
+` : '')
+        : `⚠️ <b>Platforma kartasi sozlanmagan</b> (PLATFORM_CARD_NUMBER)
+`;
+    }
     caption +=
       `🧾 №: ${invoice.invoiceNumber}` +
       (by ? `\n👤 ${by}` : '') +
