@@ -207,8 +207,6 @@ export interface AdminUserListItem {
   balance: number;
   isBlocked: boolean;
   ordersCount: number;
-  cartCount: number;
-  favoritesCount: number;
   lastSeenAt: string;
   createdAt: string;
 }
@@ -218,8 +216,6 @@ export interface AdminUserDetail extends AdminUserListItem {
     ordersCount: number;
     revenue: number;
     avgOrderValue: number;
-    cartCount: number;
-    favoritesCount: number;
     eventsCount: number;
   };
 }

@@ -286,6 +286,7 @@ model User {
   tickets       SupportTicket[]
   promoUsages   PromoCodeUsage[]
   tenantBlocks  TenantBlockedUser[]
+  tenantLinks   TenantCustomer[]
 
   @@index([lastSeenAt])
 }
@@ -467,6 +468,7 @@ model Tenant {
   resourceStats  TenantResourceStat[]
   channelPosts   ChannelPost[]
   blockedUsers   TenantBlockedUser[]
+  customers      TenantCustomer[]
   promoCodes     PromoCode[]
 
   @@index([status, tariffPlan])
@@ -475,6 +477,32 @@ model Tenant {
   @@index([lastActivityAt])
   @@index([referredById])
   @@index([deviceId])
+}
+
+/// Do'kon <-> mijoz bog'lanishi.
+///
+/// `User` GLOBAL model (bitta Telegram akkaunt = bitta yozuv), shuning uchun
+/// mijoz qaysi do'konga tegishli ekanini faqat shu jadval aniq ko'rsatadi.
+/// Ilgari bu bog'lanish faqat BUYURTMA orqali bilvosita chiqarilardi — botga
+/// /start bosgan yoki do'konni ochib ko'rgan, lekin hali xarid qilmagan mijoz
+/// sotuvchi panelida umuman ko'rinmasdi.
+///
+/// Yozuv ikki joyda yaratiladi: do'kon botida /start bosilganda va do'kon
+/// Mini App'iga kirilganda.
+model TenantCustomer {
+  id         String   @id @default(cuid())
+  tenantId   String
+  userId     String
+  source     String   @default("BOT") // BOT | WEBAPP
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([tenantId, lastSeenAt])
+  @@index([userId])
 }
 
 /// Reseller o'z do'konida bloklagan mijozlar (per-tenant).

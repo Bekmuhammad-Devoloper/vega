@@ -139,8 +139,6 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
               <Row label="Buyurtmalar" value={user.stats.ordersCount.toString()} />
               <Row label="Jami tushum" value={formatMoney(user.stats.revenue)} />
               <Row label="O'rtacha buyurtma" value={formatMoney(user.stats.avgOrderValue)} />
-              <Row label="Savatda" value={user.stats.cartCount.toString()} />
-              <Row label="Sevimlilarda" value={user.stats.favoritesCount.toString()} />
               <Row label="Eventlar" value={user.stats.eventsCount.toString()} />
             </CardBody>
           </Card>

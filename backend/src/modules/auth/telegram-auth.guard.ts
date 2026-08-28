@@ -10,6 +10,7 @@ import type { User } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { InvalidInitDataError } from '@/common/helpers/telegram-init-data';
 import { TenantScopeService } from '@/common/tenant-scope/tenant-scope.service';
+import { TenantCustomerService } from '@/common/tenant-scope/tenant-customer.service';
 import { PrismaService } from '@/prisma/prisma.service';
 
 const DEV_TELEGRAM_ID = 999000001;
@@ -31,6 +32,7 @@ export class TelegramAuthGuard implements CanActivate {
   constructor(
     private readonly auth: AuthService,
     private readonly tenantScope: TenantScopeService,
+    private readonly tenantCustomers: TenantCustomerService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -99,6 +101,9 @@ export class TelegramAuthGuard implements CanActivate {
     try {
       const user = await this.auth.authenticate(initData, tenantBotToken);
       await this.assertNotBlocked(user, req.tenantId ?? null);
+      // Mijozni shu do'kon mijozi sifatida belgilaymiz — hali xarid
+      // qilmagan bo'lsa ham sotuvchi panelida ko'rinsin.
+      await this.tenantCustomers.touch(req.tenantId, user.id, 'WEBAPP');
       (req as { user: unknown }).user = user;
       return true;
     } catch (err) {

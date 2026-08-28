@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { Search, X, Heart, ShoppingCart, Package, UserRound, ChevronRight } from 'lucide-react';
+import { Search, X, Wallet, Package, UserRound, ChevronRight } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Segmented } from '@/components/ui/segmented';
 import { UserStatusBadge } from '@/components/user-status-badge';
 import { apiListAdminUsers } from '@/lib/endpoints';
-import { formatRelative } from '@/lib/format';
+import { formatMoney, formatRelative } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
 type Filter = 'all' | 'no' | 'yes';
@@ -215,8 +215,18 @@ export default function UsersPage() {
 
                     <div className="mt-1 flex items-center gap-2.5 text-[11px]">
                       <Stat icon={<Package size={11} />} value={u.ordersCount} title="Buyurtmalar" />
-                      <Stat icon={<ShoppingCart size={11} />} value={u.cartCount} title="Savatda" />
-                      <Stat icon={<Heart size={11} />} value={u.favoritesCount} title="Sevimlilar" />
+                      <span
+                        title="Balans"
+                        className={cn(
+                          'inline-flex items-center gap-0.5 tabular-nums',
+                          u.balance > 0
+                            ? 'font-semibold text-[var(--color-primary)]'
+                            : 'text-[var(--color-text-muted)]/45',
+                        )}
+                      >
+                        <Wallet size={11} />
+                        {formatMoney(u.balance ?? 0)}
+                      </span>
                     </div>
                   </div>
 

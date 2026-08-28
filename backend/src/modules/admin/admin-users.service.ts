@@ -20,6 +20,34 @@ export interface ListUsersParams {
 export class AdminUsersService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Mijoz shu do'konga tegishlimi. `list()` dagi filtr bilan BIR XIL shartlar:
+   * bog'lanish yozuvi, buyurtma, balans to'ldirish yoki do'kon hodisasi.
+   * Shartlar mos kelmasa ro'yxatda ko'rinadigan mijozni ochib bo'lmay
+   * qolardi (404) — aynan shu xato profil sahifasini ishlamas qilgan edi.
+   */
+  private async isCustomerOf(userId: string, tenantId: string): Promise<boolean> {
+    const [link, order, topup, event] = await Promise.all([
+      this.prisma.tenantCustomer.findUnique({
+        where: { tenantId_userId: { tenantId, userId } },
+        select: { id: true },
+      }),
+      this.prisma.numberOrder.findFirst({
+        where: { userId, tenantId },
+        select: { id: true },
+      }),
+      this.prisma.balanceTopup.findFirst({
+        where: { userId, tenantId },
+        select: { id: true },
+      }),
+      this.prisma.userEvent.findFirst({
+        where: { userId, tenantId },
+        select: { id: true },
+      }),
+    ]);
+    return !!(link || order || topup || event);
+  }
+
   async list(params: ListUsersParams): Promise<CursorPage<unknown>> {
     const limit = Math.min(Math.max(params.limit ?? 30, 1), 100);
     const take = limit + 1;
@@ -38,19 +66,26 @@ export class AdminUsersService {
       }
     }
 
-    // Do'kon mijozi = shu do'konga BUYURTMA bergan YOKI BALANS to'ldirgan.
-    // Faqat buyurtma bo'yicha filtrlash hali xarid qilmagan (masalan balansi
-    // yetmagan) mijozni ro'yxatdan butunlay yashirar edi — aynan ularga
-    // qo'lda balans tuzatish kerak bo'ladi.
+    // Do'kon mijozi kim?
+    //
+    // Asosiy manba — `TenantCustomer` (botga /start bosgan yoki do'konni
+    // ochgan har bir odam shu yerga yoziladi). Qolgan ikki shart eski
+    // ma'lumot uchun: bu jadval qo'shilishidan oldin xarid qilgan yoki
+    // balans to'ldirgan mijozlar ham ko'rinib tursin.
     const membership: Prisma.UserWhereInput[] = [];
     if (tenantId) {
+      membership.push({ tenantLinks: { some: { tenantId } } });
+      membership.push({ orders: { some: { tenantId } } });
+      // `UserEvent` da tenantId bor — do'kon Mini App'ini ilgari ochgan, ammo
+      // hali `TenantCustomer` yozuvi bo'lmagan mijozlar shu orqali chiqadi
+      // (backfill kerak emas, eski ma'lumot o'z-o'zidan ko'rinadi).
+      membership.push({ events: { some: { tenantId } } });
       const topupRows = await this.prisma.balanceTopup.findMany({
         where: { tenantId },
         select: { userId: true },
         distinct: ["userId"],
         take: 5000,
       });
-      membership.push({ orders: { some: { tenantId } } });
       if (topupRows.length) {
         membership.push({ id: { in: topupRows.map((r) => r.userId) } });
       }
@@ -130,18 +165,7 @@ export class AdminUsersService {
     if (!Number.isFinite(delta) || delta === 0) {
       throw new BadRequestException("Summa noto'g'ri");
     }
-    // Faqat SHU do'konning mijozi (buyurtma yoki to'ldirish tarixi bo'yicha).
-    const [hasOrder, hasTopup] = await Promise.all([
-      this.prisma.numberOrder.findFirst({
-        where: { userId, tenantId },
-        select: { id: true },
-      }),
-      this.prisma.balanceTopup.findFirst({
-        where: { userId, tenantId },
-        select: { id: true },
-      }),
-    ]);
-    if (!hasOrder && !hasTopup) {
+    if (!(await this.isCustomerOf(userId, tenantId))) {
       throw new NotFoundException("Bu mijoz sizning do'koningizga tegishli emas");
     }
 
@@ -205,18 +229,8 @@ export class AdminUsersService {
 
   async getById(id: string, tenantId?: string | null) {
     // Sotuvchi faqat o'z mijozini ko'ra oladi — boshqa do'kon mijozi bo'lsa 404.
-    if (tenantId) {
-      const [hasOrder, hasTopup] = await Promise.all([
-        this.prisma.numberOrder.findFirst({
-          where: { userId: id, tenantId },
-          select: { id: true },
-        }),
-        this.prisma.balanceTopup.findFirst({
-          where: { userId: id, tenantId },
-          select: { id: true },
-        }),
-      ]);
-      if (!hasOrder && !hasTopup) throw new NotFoundException("User not found");
+    if (tenantId && !(await this.isCustomerOf(id, tenantId))) {
+      throw new NotFoundException("User not found");
     }
 
     const u = await this.prisma.user.findUnique({

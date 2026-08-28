@@ -2,10 +2,11 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Bot, type Context, InlineKeyboard, InputFile } from 'grammy';
-import { WalletTxType } from '@prisma/client';
+import { Language, WalletTxType } from '@prisma/client';
 import { join } from 'path';
 import { PrismaService } from '@/prisma/prisma.service';
 import { TelegramBotService } from './telegram-bot.service';
+import { TenantCustomerService } from '@/common/tenant-scope/tenant-customer.service';
 
 /**
  * Sotuvchi ulagan Telegram kanali haqida jonli ma'lumot (e'lonlar sahifasida
@@ -48,6 +49,7 @@ export class TenantBotService implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly events: EventEmitter2,
     private readonly globalBot: TelegramBotService,
+    private readonly tenantCustomers: TenantCustomerService,
     config: ConfigService,
   ) {
     this.webappUrl = (config.get<string>('WEBAPP_URL') ?? '').replace(/\/$/, '');
@@ -226,6 +228,11 @@ export class TenantBotService implements OnModuleInit {
     };
 
     bot.command('start', async (ctx) => {
+      // /start bosgan HAR KIM sotuvchi panelida ko'rinishi kerak — xarid
+      // qilmagan bo'lsa ham. Ilgari mijoz faqat Mini App'ga kirganda
+      // yaratilardi, botdagi /start esa hech qanday iz qoldirmasdi.
+      await this.registerCustomer(tenantId, ctx);
+
       // Majburiy obuna — a'zo bo'lmagan kanallar bo'lsa, avval obuna so'raladi.
       const userId = ctx.from?.id;
       if (userId) {
@@ -273,6 +280,37 @@ export class TenantBotService implements OnModuleInit {
     });
 
     return bot;
+  }
+
+  /**
+   * Botga yozgan odamni `User` sifatida yaratadi va do'konga bog'laydi.
+   * Xato bo'lsa yutiladi — ro'yxatga olish /start javobini buzmasligi kerak.
+   */
+  private async registerCustomer(tenantId: string, ctx: Context): Promise<void> {
+    const from = ctx.from;
+    if (!from || from.is_bot) return;
+    try {
+      const user = await this.prisma.user.upsert({
+        where: { telegramId: BigInt(from.id) },
+        update: {
+          username: from.username ?? null,
+          firstName: from.first_name ?? null,
+          lastName: from.last_name ?? null,
+          lastSeenAt: new Date(),
+        },
+        create: {
+          telegramId: BigInt(from.id),
+          username: from.username ?? null,
+          firstName: from.first_name ?? null,
+          lastName: from.last_name ?? null,
+          language: from.language_code === 'ru' ? Language.ru : Language.uz,
+        },
+        select: { id: true },
+      });
+      await this.tenantCustomers.touch(tenantId, user.id, 'BOT');
+    } catch (err) {
+      this.logger.warn(`Mijoz ro'yxatga olinmadi: ${(err as Error).message}`);
+    }
   }
 
   /** Broadcast/bulk yuborish uchun do'kon botini ochib beradi (keshlangan). */

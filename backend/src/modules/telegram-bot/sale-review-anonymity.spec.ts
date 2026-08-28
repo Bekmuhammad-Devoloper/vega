@@ -38,7 +38,14 @@ describe("Sotuv e'loni — xaridor anonimligi", () => {
 
     const config = { get: () => '' } as never;
     const globalBot = { bot } as never;
-    const svc = new TenantBotService(prisma as never, {} as never, globalBot, config);
+    const tenantCustomers = { touch: async () => undefined } as never;
+    const svc = new TenantBotService(
+      prisma as never,
+      {} as never,
+      globalBot,
+      tenantCustomers,
+      config,
+    );
     return { svc, sent };
   }
 
