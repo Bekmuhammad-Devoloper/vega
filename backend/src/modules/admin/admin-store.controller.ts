@@ -108,6 +108,11 @@ class ReviewsDto {
   @IsOptional() @IsBoolean() enabled?: boolean;
 }
 
+class OrdersChannelDto {
+  // Buyurtmalar kanali: @username yoki -100... ID (bo'sh string = uzish)
+  @IsOptional() @IsString() @MaxLength(60) channelId?: string;
+}
+
 class ChannelsDto {
   @IsOptional() @IsString() @MaxLength(200) mainChannelUrl?: string;
   @IsOptional() @IsString() @MaxLength(200) reviewChannelUrl?: string;
@@ -229,6 +234,10 @@ export class AdminStoreController {
         reviews: {
           channelId: t.reviewsChannelId ?? '',
           enabled: t.reviewsEnabled,
+        },
+        // Buyurtmalar kanali — bo'sh bo'lsa kartochka hech qayerga tushmaydi.
+        ordersChannel: {
+          channelId: t.ordersChannelId ?? '',
         },
         channels: {
           mainChannelUrl: t.mainChannelUrl ?? '',
@@ -780,6 +789,40 @@ export class AdminStoreController {
     }
 
     await this.prisma.tenant.update({ where: { id: admin.tenantId }, data });
+    return { ok: true };
+  }
+
+  /**
+   * Buyurtmalar kanali — yangi buyurtma kartochkasi shu kanalga tushadi.
+   * Sozlanmagan bo'lsa hech qayerga yuborilmaydi (opt-in). Ilgari barcha
+   * do'kon buyurtmalari bitta GLOBAL kanalga tushib, do'konlar bir-birining
+   * buyurtmalarini ko'rardi.
+   */
+  @Put('orders-channel')
+  @Roles(...BOSS_ROLES)
+  @HttpCode(200)
+  async updateOrdersChannel(@CurrentAdmin() admin: Admin, @Body() dto: OrdersChannelDto) {
+    if (!admin.tenantId) throw new BadRequestException("Do'kon topilmadi");
+    if (dto.channelId === undefined) return { ok: true };
+
+    const ch = dto.channelId.trim();
+    if (ch && !/^(-100\d{6,}|@[A-Za-z]\w{3,})$/.test(ch)) {
+      throw new BadRequestException("Kanal ID '-100...' yoki '@kanal' ko'rinishida bo'lsin");
+    }
+    // Kanal berilgan bo'lsa — bot o'sha kanalda ADMIN ekanini tekshiramiz,
+    // aks holda buyurtmalar jimgina yo'qolib ketardi.
+    if (ch) {
+      const v = await this.tenantBot.verifyChannelBotAdmin(ch);
+      if (!v.ok) {
+        throw new BadRequestException(
+          "@Vega_uzbot kanalda ADMIN emas. Uni kanalingizga admin qiling — \"Post messages\" huquqi bilan, so'ng qayta saqlang.",
+        );
+      }
+    }
+    await this.prisma.tenant.update({
+      where: { id: admin.tenantId },
+      data: { ordersChannelId: ch || null },
+    });
     return { ok: true };
   }
 

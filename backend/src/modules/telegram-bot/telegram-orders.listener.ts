@@ -166,8 +166,11 @@ export class TelegramOrdersListener implements OnModuleInit {
       ...order,
       retailPrice: Number(order.retailPrice),
     });
+    // Buyurtma kartochkasi DO'KONNING O'Z kanaliga tushadi. Ilgari bu bitta
+    // GLOBAL kanalga borardi va do'konlar bir-birining buyurtmalarini ko'rardi.
+    // Kanal sozlanmagan bo'lsa — hech qayerga yuborilmaydi (opt-in).
     try {
-      const { messageId } = await this.bot.sendToOrdersChannel(text, keyboard);
+      const messageId = await this.tenantBot.sendOrderToChannel(order.tenantId, text, keyboard);
       if (messageId) this.channelMessages.set(order.id, messageId);
     } catch (err) {
       this.logger.error(`Failed to post order to channel: ${(err as Error).message}`);
@@ -200,7 +203,8 @@ export class TelegramOrdersListener implements OnModuleInit {
         ...order,
         retailPrice: Number(order.retailPrice),
       });
-      await this.bot.editOrdersChannelMessage(messageId, text, keyboard);
+      // Kartochka do'konning O'Z kanalida — tahrirlash ham o'sha yerda.
+      await this.tenantBot.editOrderChannelMessage(order.tenantId, messageId, text, keyboard);
     }
 
     const userMessages: Record<NumberOrderStatus, string | null> = {

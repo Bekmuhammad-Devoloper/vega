@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Megaphone, Info, Radio, CheckCircle2, Users, AlertCircle } from 'lucide-react';
+import { Megaphone, Info, Radio, CheckCircle2, Users, AlertCircle, ClipboardList } from 'lucide-react';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { Field, Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { apiReviewChannelInfo, apiUpdateStoreReviews } from '@/lib/endpoints';
+import { apiReviewChannelInfo, apiUpdateStoreReviews, apiUpdateOrdersChannel } from '@/lib/endpoints';
 import { toast } from '@/stores/toast-store';
 import { SettingsHeader, useStore } from '../_shared';
 
@@ -37,12 +37,14 @@ export default function ReviewsSettingsPage() {
 
   const [enabled, setEnabled] = useState(false);
   const [channelId, setChannelId] = useState('');
+  const [ordersChannel, setOrdersChannel] = useState('');
   const inited = useRef(false);
 
   useEffect(() => {
     if (!tenant || inited.current) return;
     setEnabled(tenant.reviews?.enabled ?? false);
     setChannelId(tenant.reviews?.channelId ?? '');
+    setOrdersChannel(tenant.ordersChannel?.channelId ?? '');
     inited.current = true;
   }, [tenant]);
 
@@ -51,6 +53,15 @@ export default function ReviewsSettingsPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['my-store'] });
       qc.invalidateQueries({ queryKey: ['review-channel-info'] });
+      toast.success('Saqlandi');
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const saveOrders = useMutation({
+    mutationFn: () => apiUpdateOrdersChannel(ordersChannel.trim()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['my-store'] });
       toast.success('Saqlandi');
     },
     onError: (err: Error) => toast.error(err.message),
@@ -171,6 +182,47 @@ export default function ReviewsSettingsPage() {
 
               <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
                 <Radio size={14} /> E&apos;lon xato bo&apos;lsa (bot admin emas) sotuv baribir davom etadi — jim o&apos;tkazib yuboriladi.
+              </div>
+            </CardBody>
+          </Card>
+
+          {/* ── Buyurtmalar kanali ───────────────────────────────── */}
+          <Card>
+            <CardHeader
+              title="Buyurtmalar kanali"
+              subtitle="Har yangi buyurtma kartochkasi shu yopiq kanalingizga tushadi"
+            />
+            <CardBody className="space-y-3">
+              <div className="flex gap-2.5 rounded-2xl bg-[var(--color-bg)] p-3.5">
+                <Info size={16} className="mt-0.5 shrink-0 text-[var(--color-primary)]" />
+                <p className="text-xs leading-relaxed text-[var(--color-text-muted)]">
+                  Bu <b className="text-[var(--color-text)]">xodimlaringiz uchun</b> ichki kanal —
+                  mijozlar ko&apos;rmaydi. Bo&apos;sh qoldirsangiz buyurtmalar hech qayerga
+                  yuborilmaydi (panelda baribir ko&apos;rinadi).
+                </p>
+              </div>
+
+              <Field
+                label="Kanal @username yoki ID"
+                hint="@Vega_uzbot shu kanalga admin bo'lishi shart. Masalan: @myshop_orders yoki -1001234567890"
+              >
+                <Input
+                  value={ordersChannel}
+                  onChange={(e) => setOrdersChannel(e.target.value)}
+                  placeholder="@myshop_orders"
+                  className="font-mono"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                />
+              </Field>
+
+              <Button loading={saveOrders.isPending} onClick={() => saveOrders.mutate()}>
+                Saqlash
+              </Button>
+
+              <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
+                <ClipboardList size={14} /> Har do&apos;kon o&apos;z kanaliga ega — boshqa
+                do&apos;konlar buyurtmalaringizni ko&apos;rmaydi.
               </div>
             </CardBody>
           </Card>

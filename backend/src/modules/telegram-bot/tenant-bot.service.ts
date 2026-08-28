@@ -299,6 +299,70 @@ export class TenantBotService implements OnModuleInit {
   }
 
   /**
+   * Yangi buyurtma kartochkasini DO'KONNING O'Z buyurtmalar kanaliga yuboradi.
+   *
+   * Ilgari buyurtmalar bitta GLOBAL kanalga tushardi, ya'ni do'konlar
+   * bir-birining buyurtmalarini ko'rardi. Endi har do'kon o'z kanalini
+   * sozlaydi; sozlanmagan bo'lsa — hech qayerga yuborilmaydi (opt-in).
+   *
+   * @returns yuborilgan xabar id'si (keyin tahrirlash uchun) yoki null
+   */
+  async sendOrderToChannel(
+    tenantId: string,
+    text: string,
+    replyMarkup?: InlineKeyboard,
+  ): Promise<number | null> {
+    const t = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { ordersChannelId: true, botToken: true },
+    });
+    if (!t?.ordersChannelId) return null; // sozlanmagan — jim qaytamiz
+
+    const picked = await this.pickChannelBot(tenantId, t.ordersChannelId, t.botToken);
+    if (!picked) {
+      this.logger.warn(`Buyurtma kanali: bot ${tenantId} kanalida admin emas`);
+      return null;
+    }
+    try {
+      const msg = await picked.bot.api.sendMessage(
+        this.channelChatId(t.ordersChannelId),
+        text,
+        { parse_mode: 'HTML', reply_markup: replyMarkup },
+      );
+      return msg.message_id;
+    } catch (err) {
+      this.logger.warn(`Buyurtma kanaliga yuborilmadi: ${(err as Error).message}`);
+      return null;
+    }
+  }
+
+  /** Do'kon kanalidagi buyurtma kartochkasini yangilaydi (holat o'zgarganda). */
+  async editOrderChannelMessage(
+    tenantId: string,
+    messageId: number,
+    text: string,
+    replyMarkup?: InlineKeyboard,
+  ): Promise<void> {
+    const t = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { ordersChannelId: true, botToken: true },
+    });
+    if (!t?.ordersChannelId) return;
+    const picked = await this.pickChannelBot(tenantId, t.ordersChannelId, t.botToken);
+    if (!picked) return;
+    try {
+      await picked.bot.api.editMessageText(
+        this.channelChatId(t.ordersChannelId),
+        messageId,
+        text,
+        { parse_mode: 'HTML', reply_markup: replyMarkup },
+      );
+    } catch {
+      // Tahrirlash muhim emas (xabar o'chirilgan yoki o'zgarmagan bo'lishi mumkin).
+    }
+  }
+
+  /**
    * Mijoz yuklagan to'lov chekini sotuvchining tasdiqlash kanaliga yuboradi.
    * Tugmalar: ✅ Tasdiqlash / ❌ Rad etish.
    * FAQAT global @Vega_uzbot orqali — sotuvchi shu bitta botni admin qilsa yetadi.

@@ -254,6 +254,12 @@ export class NumbersService {
       });
       return o;
     });
+
+    // Buyurtma kartochkasi do'konning O'Z kanaliga tushishi uchun. Kanal
+    // sozlanmagan bo'lsa hech narsa yuborilmaydi (opt-in), shu bois bu
+    // hodisa xavfsiz. Mijozga xabar ham shu listenerda beriladi.
+    this.events.emit('order.created', { orderId: order.id, tenantId });
+
     return order;
   }
 

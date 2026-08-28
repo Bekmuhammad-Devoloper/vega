@@ -106,6 +106,17 @@ Unhandled `Error.message` was returned verbatim with the 500 (Prisma queries, pr
 
 > Verified already fixed since the original audit (no action needed): **F4** (broadcast is tenant-scoped and sends via the tenant bot), **F5 support half** (tickets scoped by `admin.tenantId`).
 
-### Still open — needs a product decision
-- **F7 — orders channel**: orders still post to one **global** channel via the global bot (`ordersChannelId` from env). Giving each store its own channel needs a `Tenant.ordersChannelId` column + owner-facing UI + a fallback rule when unset. Not blind-patched.
-- **F-throttle**, **F1**, **F-orderpaid**: unchanged, see above.
+### F7 — orders channel is now per-store `[CRITICAL, was latent]`
+Orders posted to one **global** channel via the global bot. It was *latent* only because `order.created` was never emitted — the whole path was dead code, so no order card reached any channel. Fixed properly: added `Tenant.ordersChannelId` (nullable — applied by `prisma db push` on deploy), `TenantBotService.sendOrderToChannel()` / `editOrderChannelMessage()` which post through `pickChannelBot` to the **store's own** channel, and the listener now uses them. `order.created` is emitted from `numbers.service.createOrder()` so the feature actually works. **Opt-in**: with `ordersChannelId` unset nothing is posted. Owner-facing UI + `PUT /admin/store/orders-channel` (validates the id format and that the bot is an admin of the channel) added.
+
+### F-orderpaid — online payment now confirms the order `[HIGH]`
+`order.paid` (Payme/Click) had **no listener**: `paidAt` was written but the customer got no confirmation and nothing moved in the admin panel. Added `TelegramOrderPaidListener` mirroring the manual receipt-approval path — writes a `NumberOrderEvent`, emits `order.status_changed` (tenant-scoped) + `user.order.status_changed`, and DMs the customer via the **store's own** bot. Idempotent (Payme retries `Perform`). Revenue is deliberately **not** incremented here — `Tenant.totalRevenue` is already rolled up at sale completion, so doing it here would double-count.
+
+### F-throttle — verified live, webhooks exempted `[HIGH]`
+`ThrottlerGuard` **is** registered as `APP_GUARD` and `app.set('trust proxy', 1)` **is** in `main.ts` (both done since the audit); global limit is 300/min. The remaining gap was step 3: no `@SkipThrottle()` anywhere, so Payme/Click webhooks, both Telegram webhook controllers and `/health` (all machine-to-machine, from a handful of IPs) could hit the global limit and 429 — silently breaking payments and bot updates. `@SkipThrottle()` added to those four controllers.
+
+### F1 — `admin/admins` scoped by tenant `[CRITICAL, was latent]`
+`list/create/update/delete` had no `tenantId` — the caller saw and could edit **every admin on the platform**. Latent because `@Roles(SUPERADMIN)` gates it and no code path ever assigns `SUPERADMIN` (store owners get `ADMIN`), but the module is reachable from the admin UI's `/admins` page, so it was one role-assignment away from a platform takeover. Now: queries scoped to the caller's tenant (platform admins with no `tenantId` keep full access), new admins inherit the caller's `tenantId`, a tenant-context caller cannot assign `SUPERADMIN`, cross-tenant targets return **404**, and self-delete is blocked.
+
+### Still open
+Nothing from this tracker. The remaining `🔧 Recommended` items below (promo atomicity, order-status transition whitelist, AI cost accounting, `viewCount` debounce, `WeeklyStat` cleanup, upload GC, etc.) were **not** part of this pass.

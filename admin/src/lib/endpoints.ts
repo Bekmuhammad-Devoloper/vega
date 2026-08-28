@@ -227,6 +227,7 @@ export interface MyStore {
     click: { serviceId: string; merchantId: string; merchantUserId: string; hasSecret: boolean };
     cardPayment: { cardNumber: string; cardHolder: string; channelId: string };
     reviews?: { channelId: string; enabled: boolean };
+    ordersChannel?: { channelId: string };
     /** Free sinov holati (10 kun). Backend qaytaradi — banner/blok uchun. */
     trial?: {
       state: 'TRIAL' | 'EXPIRED' | 'PAID';
@@ -274,6 +275,10 @@ export const apiUpdateStoreCardPayment = (data: CardPaymentInput) =>
   api<{ ok: boolean }>('/admin/store/card-payment', { method: 'PUT', body: data });
 export const apiUpdateStoreReviews = (data: { channelId: string; enabled: boolean }) =>
   api<{ ok: boolean }>('/admin/store/reviews', { method: 'PUT', body: data });
+
+/** Buyurtmalar kanali — bo'sh string yuborilsa kanal uziladi. */
+export const apiUpdateOrdersChannel = (channelId: string) =>
+  api<{ ok: boolean }>('/admin/store/orders-channel', { method: 'PUT', body: { channelId } });
 export interface DeliveryInput {
   enabled?: boolean;
   fee?: number;
