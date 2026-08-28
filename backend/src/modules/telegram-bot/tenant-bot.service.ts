@@ -576,15 +576,15 @@ export class TenantBotService implements OnModuleInit {
         const emoji = review.serviceEmoji ? `${review.serviceEmoji} ` : '📱 ';
         text =
           `✅ <b>${botHandle}</b> dan yangi raqam olindi!\n\n` +
-          `📞 Nomer: <code>${this.maskPhone(review.phone)}</code>\n` +
-          `🌎 Davlat: ${review.countryFlag} <b>${esc(review.countryName)}</b>\n` +
+          `📱 Raqam: <code>${this.maskPhone(review.phone)}</code>\n` +
+          `🌍 Davlat: ${review.countryFlag} <b>${esc(review.countryName)}</b>\n` +
           `${emoji}Xizmat: <b>${esc(review.serviceName)}</b>\n` +
-          `💵 Narxi: <b>${price}</b>\n\n` +
+          `💰 Narxi: <b>${price}</b>\n\n` +
           `✅ <b>${botHandle}</b> orqali <b>Tezkor · Arzon · Spamsiz</b> va ` +
           `ishonchli raqamlarni sotib olishingiz mumkin! 🔥\n\n` +
-          `📊 Bugungacha <b>${t.totalOrders}</b> ta muvaffaqiyatli sotuv\n` +
-          `⚡️ SMS kodi soniyalarda keladi · 24/7\n\n` +
-          `🛍 <b>${shop}</b>`;
+          `📈 Bugungacha <b>${t.totalOrders}</b> ta muvaffaqiyatli sotuv\n` +
+          `⚡ SMS kodi soniyalarda keladi · 24/7\n\n` +
+          `🏪 <b>${shop}</b>`;
       } else {
         const kindEmoji =
           review.kind === 'STARS' ? '⭐' : review.kind === 'GIFT' ? '🎁' : '👑';
@@ -597,12 +597,12 @@ export class TenantBotService implements OnModuleInit {
         text =
           `✅ <b>${botHandle}</b> dan yangi ${kindEmoji} <b>${esc(review.label)}</b> olindi!\n\n` +
           `👤 Xaridor: ${this.maskUsername(review.username)}\n` +
-          `💵 Narxi: <b>${price}</b>\n\n` +
+          `💰 Narxi: <b>${price}</b>\n\n` +
           `✅ <b>${botHandle}</b> orqali <b>${kindWord}</b> — tez, arzon va ` +
           `ishonchli! 🔥\n\n` +
-          `📊 Bugungacha <b>${t.totalOrders}</b> ta muvaffaqiyatli sotuv\n` +
-          `⚡️ Bir necha soniyada yetkaziladi · 24/7\n\n` +
-          `🛍 <b>${shop}</b>`;
+          `📈 Bugungacha <b>${t.totalOrders}</b> ta muvaffaqiyatli sotuv\n` +
+          `⚡ Bir necha soniyada yetkaziladi · 24/7\n\n` +
+          `🏪 <b>${shop}</b>`;
       }
 
       // Tugmalar: "Raqam egasi/Xaridor" (xaridor profili) + "Sotib olish" (do'kon boti)

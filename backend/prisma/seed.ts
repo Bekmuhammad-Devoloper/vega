@@ -71,13 +71,13 @@ const TARIFFS = [
 // ── Xizmatlar (HeroSMS kodi; telegram = SPIDER real SIM) ──
 const SERVICES = [
   { slug: 'telegram', nameUz: 'Telegram', nameRu: 'Telegram', emoji: '✈️', heroCode: 'tg', telegramOnly: true, position: 1 },
-  { slug: 'whatsapp', nameUz: 'WhatsApp', nameRu: 'WhatsApp', emoji: '💬', heroCode: 'wa', telegramOnly: false, position: 2 },
+  { slug: 'whatsapp', nameUz: 'WhatsApp', nameRu: 'WhatsApp', emoji: '💚', heroCode: 'wa', telegramOnly: false, position: 2 },
   { slug: 'instagram', nameUz: 'Instagram', nameRu: 'Instagram', emoji: '📸', heroCode: 'ig', telegramOnly: false, position: 3 },
-  { slug: 'google', nameUz: 'Google / Gmail', nameRu: 'Google / Gmail', emoji: '🔴', heroCode: 'go', telegramOnly: false, position: 4 },
-  { slug: 'facebook', nameUz: 'Facebook', nameRu: 'Facebook', emoji: '👍', heroCode: 'fb', telegramOnly: false, position: 5 },
-  { slug: 'tiktok', nameUz: 'TikTok', nameRu: 'TikTok', emoji: '🎵', heroCode: 'lf', telegramOnly: false, position: 6 },
-  { slug: 'twitter', nameUz: 'Twitter / X', nameRu: 'Twitter / X', emoji: '🐦', heroCode: 'tw', telegramOnly: false, position: 7 },
-  { slug: 'viber', nameUz: 'Viber', nameRu: 'Viber', emoji: '🟣', heroCode: 'vi', telegramOnly: false, position: 8 },
+  { slug: 'google', nameUz: 'Google / Gmail', nameRu: 'Google / Gmail', emoji: '✉️', heroCode: 'go', telegramOnly: false, position: 4 },
+  { slug: 'facebook', nameUz: 'Facebook', nameRu: 'Facebook', emoji: '📘', heroCode: 'fb', telegramOnly: false, position: 5 },
+  { slug: 'tiktok', nameUz: 'TikTok', nameRu: 'TikTok', emoji: '🎶', heroCode: 'lf', telegramOnly: false, position: 6 },
+  { slug: 'twitter', nameUz: 'Twitter / X', nameRu: 'Twitter / X', emoji: '✖️', heroCode: 'tw', telegramOnly: false, position: 7 },
+  { slug: 'viber', nameUz: 'Viber', nameRu: 'Viber', emoji: '💜', heroCode: 'vi', telegramOnly: false, position: 8 },
   { slug: 'uber', nameUz: 'Uber', nameRu: 'Uber', emoji: '🚗', heroCode: 'ub', telegramOnly: false, position: 9 },
 ];
 
