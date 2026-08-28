@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Megaphone, Info, Radio, CheckCircle2, Users, AlertCircle, ClipboardList, Send } from 'lucide-react';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
-import { Field, Input, Select } from '@/components/ui/input';
+import { Field, Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -15,6 +15,9 @@ import {
   apiMarketingSale,
 } from '@/lib/endpoints';
 import { toast } from '@/stores/toast-store';
+import { PickerSelect } from '@/components/picker-select';
+import { ServiceIcon } from '@/components/service-icon';
+import { CountryFlag } from '@/components/country-flag';
 import { SettingsHeader, useStore } from '../_shared';
 
 function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
@@ -86,6 +89,19 @@ export default function ReviewsSettingsPage() {
   const mkCountryOffers = mkServiceId
     ? activeOffers.filter((o) => o.serviceId === mkServiceId)
     : [];
+
+  // PickerSelect bottom-sheet ishlatadi — native <select>dan farqli o'laroq
+  // haqiqiy brend logolarini (public/brands/*.svg) ko'rsata oladi.
+  const mkServiceOptions = mkServices.map(({ id, service }) => ({
+    value: id,
+    label: service.nameUz ?? 'Xizmat',
+    icon: <ServiceIcon slug={service.slug} emoji={service.emoji} />,
+  }));
+  const mkCountryOptions = mkCountryOffers.map((o) => ({
+    value: o.id,
+    label: o.country?.nameUz ?? 'Davlat',
+    icon: <CountryFlag iso2={o.country?.iso2} />,
+  }));
 
   const marketing = useMutation({
     mutationFn: () => {
@@ -291,49 +307,35 @@ export default function ReviewsSettingsPage() {
               </div>
 
               <Field label="Xizmat">
-                <Select
+                <PickerSelect
+                  title="Xizmatni tanlang"
+                  placeholder="— tanlang —"
                   value={mkServiceId}
-                  onChange={(e) => {
-                    setMkServiceId(e.target.value);
+                  options={mkServiceOptions}
+                  onChange={(v) => {
+                    setMkServiceId(v);
                     setMkOfferId(''); // xizmat almashsa davlat qayta tanlanadi
                   }}
-                >
-                  <option value="">— tanlang —</option>
-                  {mkServices.map(({ id, service }) => (
-                    <option key={id} value={id}>
-                      {/* <option> ichiga rasm qo'yib bo'lmaydi — shuning uchun
-                          xizmatning emoji'si ishlatiladi (native select'da
-                          hamma platformada ko'rinadi). */}
-                      {service.emoji ? `${service.emoji} ` : ''}
-                      {service.nameUz ?? 'Xizmat'}
-                    </option>
-                  ))}
-                </Select>
+                />
               </Field>
 
               <Field
                 label="Davlat"
                 hint={
-                  mkServiceId && mkCountryOffers.length === 0
+                  mkServiceId && mkCountryOptions.length === 0
                     ? "Bu xizmat uchun taklif yo'q"
                     : undefined
                 }
               >
-                <Select
+                <PickerSelect
+                  title="Davlatni tanlang"
+                  placeholder={
+                    mkServiceId ? '— tanlang —' : '— avval xizmatni tanlang —'
+                  }
                   value={mkOfferId}
-                  onChange={(e) => setMkOfferId(e.target.value)}
-                  disabled={!mkServiceId}
-                >
-                  <option value="">
-                    {mkServiceId ? '— tanlang —' : '— avval xizmatni tanlang —'}
-                  </option>
-                  {mkCountryOffers.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.country?.flag ? `${o.country.flag} ` : ''}
-                      {o.country?.nameUz ?? 'Davlat'}
-                    </option>
-                  ))}
-                </Select>
+                  options={mkCountryOptions}
+                  onChange={(v) => setMkOfferId(v)}
+                />
               </Field>
 
               <Field
