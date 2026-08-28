@@ -840,9 +840,11 @@ export class AdminStoreController {
    * avtomatik olinadi, xaridor esa ANONIM qoladi: e'londa raqam maskalanadi
    * (oxirgi 4 raqam yashirin), xaridor ismi/tugmasi umuman ko'rsatilmaydi.
    *
-   * DIQQAT: bu haqiqiy buyurtma YARATMAYDI — hamyon, foyda, statistika va
-   * "Bugungacha N ta sotuv" hisoblagichiga tegmaydi. Faqat kanalga e'lon
-   * joylaydi, aks holda moliyaviy hisobot buzilardi.
+   * DIQQAT: bu haqiqiy buyurtma YARATMAYDI — hamyon, foyda va haqiqiy
+   * statistikaga (totalOrders) tegmaydi, aks holda moliyaviy hisobot
+   * buzilardi. Faqat kanaldagi ijtimoiy-isbot hisoblagichi
+   * (channelSalesBonus) bittaga oshadi, shunda e'lonlar ketma-ket
+   * joylanganda "Bugungacha 1, 2, 3…" bo'lib o'sib boradi.
    */
   @Post('marketing-sale')
   @Roles(...BOSS_ROLES)
@@ -880,6 +882,13 @@ export class AdminStoreController {
         "Avval 'Sotuv e'lonlari' kanalini ulang va yoqing.",
       );
     }
+
+    // Hisoblagichni e'londAN OLDIN oshiramiz — post yangi qiymatni ko'rsatsin
+    // (aks holda birinchi e'lon "0 ta sotuv" deb chiqardi).
+    await this.prisma.tenant.update({
+      where: { id: admin.tenantId },
+      data: { channelSalesBonus: { increment: 1 } },
+    });
 
     await this.tenantBot.sendSaleReview(admin.tenantId, {
       type: 'NUMBER',

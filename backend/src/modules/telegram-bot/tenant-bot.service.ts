@@ -552,6 +552,7 @@ export class TenantBotService implements OnModuleInit {
           shopName: true,
           slug: true,
           totalOrders: true,
+          channelSalesBonus: true,
         },
       });
       // Otziv o'chirilgan yoki kanal sozlanmagan — jim qaytamiz
@@ -566,6 +567,10 @@ export class TenantBotService implements OnModuleInit {
         (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       const shop = esc(t.shopName);
       const price = this.formatMoney(review.price); // "12 000 so'm"
+
+      // Kanaldagi ijtimoiy-isbot soni: haqiqiy buyurtmalar + qo'lda e'lonlar.
+      // Haqiqiy statistika (totalOrders) alohida va toza qoladi.
+      const salesShown = (t.totalOrders ?? 0) + (t.channelSalesBonus ?? 0);
 
       const botHandle = t.botUsername
         ? `@${t.botUsername}`
@@ -582,7 +587,7 @@ export class TenantBotService implements OnModuleInit {
           `💰 Narxi: <b>${price}</b>\n\n` +
           `✅ <b>${botHandle}</b> orqali <b>Tezkor · Arzon · Spamsiz</b> va ` +
           `ishonchli raqamlarni sotib olishingiz mumkin! 🔥\n\n` +
-          `📈 Bugungacha <b>${t.totalOrders}</b> ta muvaffaqiyatli sotuv\n` +
+          `📈 Bugungacha <b>${salesShown}</b> ta muvaffaqiyatli sotuv\n` +
           `⚡ SMS kodi soniyalarda keladi · 24/7\n\n` +
           `🏪 <b>${shop}</b>`;
       } else {
@@ -600,7 +605,7 @@ export class TenantBotService implements OnModuleInit {
           `💰 Narxi: <b>${price}</b>\n\n` +
           `✅ <b>${botHandle}</b> orqali <b>${kindWord}</b> — tez, arzon va ` +
           `ishonchli! 🔥\n\n` +
-          `📈 Bugungacha <b>${t.totalOrders}</b> ta muvaffaqiyatli sotuv\n` +
+          `📈 Bugungacha <b>${salesShown}</b> ta muvaffaqiyatli sotuv\n` +
           `⚡ Bir necha soniyada yetkaziladi · 24/7\n\n` +
           `🏪 <b>${shop}</b>`;
       }
