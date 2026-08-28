@@ -897,10 +897,23 @@ export class TenantBotService implements OnModuleInit {
     topupId: string,
     ctx: Context,
   ): Promise<void> {
+    this.logger.log(`baltop ${action} ${topupId}`);
     const topup = await this.prisma.balanceTopup.findUnique({
       where: { id: topupId },
     });
-    if (!topup || topup.status !== 'PENDING') return;
+    // Ilgari bu yerda jimgina `return` bor edi: egasi tugmani bosardi,
+    // "Tekshirilmoqda…" yozuvi qotib qolardi va sabab hech qayerda
+    // ko'rinmasdi (logda ham). Endi sababni aytamiz.
+    if (!topup || topup.status !== 'PENDING') {
+      const why = !topup
+        ? "So'rov topilmadi (eski xabar bo'lishi mumkin)"
+        : `So'rov allaqachon ko'rib chiqilgan: ${topup.status}`;
+      this.logger.warn(`baltop ${topupId}: ${why}`);
+      await ctx
+        .answerCallbackQuery({ text: `⚠️ ${why}`, show_alert: true })
+        .catch(() => undefined);
+      return;
+    }
     const amount = Number(topup.amount);
 
     let ok = false;
