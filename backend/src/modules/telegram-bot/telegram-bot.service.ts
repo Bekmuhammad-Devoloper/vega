@@ -245,8 +245,13 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
       if (!match) return;
       const action = match[1];
       const orderId = match[2];
+      // DIQQAT: quyidagi emit FON rejimida ketadi — natija hali ma'lum emas.
+      // Shuning uchun bu yerda "tasdiqlandi" deb YOZMAYMIZ: amal yiqilishi
+      // mumkin (masalan hamyonda mablag' yetmasa) va egasi muvaffaqiyat deb
+      // o'ylab qolardi. Haqiqiy natijani ishlovchi xabar matnini tahrirlab
+      // ko'rsatadi (✅ TASDIQLANDI yoki ⚠️ sabab).
       this.callbackEmitter?.emit('callback', { action, orderId, ctx });
-      await ctx.answerCallbackQuery({ text: '✓' });
+      await ctx.answerCallbackQuery({ text: '⏳ Tekshirilmoqda…' });
     });
 
     // To'lovni tasdiqlash / bekor qilish tugmalari
@@ -255,8 +260,13 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
       if (!match) return;
       const action = match[1];
       const tenantId = match[2];
+      // DIQQAT: quyidagi emit FON rejimida ketadi — natija hali ma'lum emas.
+      // Shuning uchun bu yerda "tasdiqlandi" deb YOZMAYMIZ: amal yiqilishi
+      // mumkin (masalan hamyonda mablag' yetmasa) va egasi muvaffaqiyat deb
+      // o'ylab qolardi. Haqiqiy natijani ishlovchi xabar matnini tahrirlab
+      // ko'rsatadi (✅ TASDIQLANDI yoki ⚠️ sabab).
       this.callbackEmitter?.emit('payment-callback', { action, tenantId, ctx });
-      await ctx.answerCallbackQuery({ text: action === 'approve' ? '✅' : '❌' });
+      await ctx.answerCallbackQuery({ text: '⏳ Tekshirilmoqda…' });
     });
 
     // Hamyon to'ldirishni tasdiqlash / rad etish tugmalari (invoice bo'yicha)
@@ -265,8 +275,13 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
       if (!match) return;
       const action = match[1];
       const invoiceId = match[2];
+      // DIQQAT: quyidagi emit FON rejimida ketadi — natija hali ma'lum emas.
+      // Shuning uchun bu yerda "tasdiqlandi" deb YOZMAYMIZ: amal yiqilishi
+      // mumkin (masalan hamyonda mablag' yetmasa) va egasi muvaffaqiyat deb
+      // o'ylab qolardi. Haqiqiy natijani ishlovchi xabar matnini tahrirlab
+      // ko'rsatadi (✅ TASDIQLANDI yoki ⚠️ sabab).
       this.callbackEmitter?.emit('topup-callback', { action, invoiceId, ctx });
-      await ctx.answerCallbackQuery({ text: action === 'approve' ? '✅' : '❌' });
+      await ctx.answerCallbackQuery({ text: '⏳ Tekshirilmoqda…' });
     });
 
     // Mijoz to'lov chekini tasdiqlash / rad etish (sotuvchi kanalidagi tugmalar)
@@ -275,10 +290,13 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
       if (!match) return;
       const action = match[1];
       const orderId = match[2];
+      // DIQQAT: quyidagi emit FON rejimida ketadi — natija hali ma'lum emas.
+      // Shuning uchun bu yerda "tasdiqlandi" deb YOZMAYMIZ: amal yiqilishi
+      // mumkin (masalan hamyonda mablag' yetmasa) va egasi muvaffaqiyat deb
+      // o'ylab qolardi. Haqiqiy natijani ishlovchi xabar matnini tahrirlab
+      // ko'rsatadi (✅ TASDIQLANDI yoki ⚠️ sabab).
       this.callbackEmitter?.emit('paycfm-callback', { action, orderId, ctx });
-      await ctx.answerCallbackQuery({
-        text: action === 'approve' ? '✅ Tasdiqlandi' : '❌ Rad etildi',
-      });
+      await ctx.answerCallbackQuery({ text: '⏳ Tekshirilmoqda…' });
     });
 
     // Mijoz BALANS to'ldirishni tasdiqlash / rad etish (sotuvchi kanalidagi tugmalar)
@@ -287,10 +305,13 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
       if (!match) return;
       const action = match[1];
       const topupId = match[2];
+      // DIQQAT: quyidagi emit FON rejimida ketadi — natija hali ma'lum emas.
+      // Shuning uchun bu yerda "tasdiqlandi" deb YOZMAYMIZ: amal yiqilishi
+      // mumkin (masalan hamyonda mablag' yetmasa) va egasi muvaffaqiyat deb
+      // o'ylab qolardi. Haqiqiy natijani ishlovchi xabar matnini tahrirlab
+      // ko'rsatadi (✅ TASDIQLANDI yoki ⚠️ sabab).
       this.callbackEmitter?.emit('baltop-callback', { action, topupId, ctx });
-      await ctx.answerCallbackQuery({
-        text: action === 'approve' ? '✅ Tasdiqlandi' : '❌ Rad etildi',
-      });
+      await ctx.answerCallbackQuery({ text: '⏳ Tekshirilmoqda…' });
     });
   }
 
