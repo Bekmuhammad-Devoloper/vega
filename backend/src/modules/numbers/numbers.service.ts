@@ -196,9 +196,12 @@ export class NumbersService {
 
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
+    // Oldindan tekshiruv — provayderdan bekorga raqam sotib olmaslik uchun.
+    // Yakuniy (poygaga chidamli) tekshiruv quyida, tranzaksiya ichida.
     if (Number(user.balance) < retailUzs) {
+      const uzs = (n: number) => n.toLocaleString('uz-UZ') + " so'm";
       throw new BadRequestException(
-        "Balansingizda mablag' yetarli emas. Balansni to'ldiring.",
+        `Balansingizda mablag' yetarli emas. Kerak: ${uzs(retailUzs)}, balansingiz: ${uzs(Number(user.balance))}. Balansni to'ldiring.`,
       );
     }
 
@@ -218,10 +221,21 @@ export class NumbersService {
     const profit = retailUzs - wholesaleUzs;
     const orderNumber = 'V' + Date.now().toString(36).toUpperCase();
     const order = await this.prisma.$transaction(async (tx) => {
-      await tx.user.update({
-        where: { id: userId },
+      // SHARTLI yechish: `update` o'rniga `updateMany` + `balance >= retail`.
+      // Oddiy `update` faqat yuqoridagi o'qishga tayanadi — mijoz ikki marta
+      // bossa yoki ikki qurilmadan bir vaqtda xarid qilsa, ikkalasi ham
+      // tekshiruvdan o'tib balansni MANFIYGA tushirardi. Endi ikkinchisi
+      // count=0 qaytaradi va xarid rad etiladi (raqam esa quyida provayderda
+      // bekor qilinadi — pul ham, raqam ham yo'qolmaydi).
+      const debited = await tx.user.updateMany({
+        where: { id: userId, balance: { gte: retailUzs } },
         data: { balance: { decrement: retailUzs } },
       });
+      if (debited.count !== 1) {
+        throw new BadRequestException(
+          "Balansingizda mablag' yetarli emas. Balansni to'ldiring.",
+        );
+      }
       const o = await tx.numberOrder.create({
         data: {
           orderNumber,
@@ -253,6 +267,13 @@ export class NumbersService {
         data: { totalOrders: { increment: 1 } },
       });
       return o;
+    }).catch(async (err) => {
+      // Raqam allaqachon provayderdan olingan. Tranzaksiya yiqilsa uni
+      // bekor qilmasak, pul provayderda qolib ketadi (sof zarar).
+      await this.providers
+        .cancel(quote.provider, bought.providerId)
+        .catch(() => undefined);
+      throw err;
     });
 
     // Buyurtma kartochkasi do'konning O'Z kanaliga tushishi uchun. Kanal

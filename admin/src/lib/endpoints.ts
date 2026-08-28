@@ -532,6 +532,12 @@ export const apiListAdminUsers = (params: { q?: string; isBlocked?: boolean; cur
 export const apiGetAdminUser = (id: string) => api<AdminUserDetail>(`/admin/users/${id}`);
 export const apiUpdateUser = (id: string, body: { isBlocked?: boolean }) =>
   api(`/admin/users/${id}`, { method: 'PATCH', body });
+/** Mijoz balansini qo'lda tuzatish. delta > 0 — qo'shish, delta < 0 — yechish. */
+export const apiAdjustUserBalance = (id: string, delta: number, note?: string) =>
+  api<{ ok: boolean; balance: number }>(`/admin/users/${id}/balance`, {
+    method: 'POST',
+    body: { delta, note },
+  });
 export const apiUserTimeline = (id: string, params: { cursor?: string; limit?: number; type?: string; from?: string; to?: string }) =>
   api<CursorPage<UserEventItem>>(`/admin/users/${id}/timeline`, { query: params });
 export const apiUserInterests = (id: string) => api<InterestsResponse>(`/admin/users/${id}/interests`);

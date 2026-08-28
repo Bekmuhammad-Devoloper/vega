@@ -47,6 +47,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
       );
     }
 
+    // 4xx'lar ilgari HECH QAYERDA yozilmasdi: jurnalda faqat `statusCode:400`
+    // ko'rinardi, SABABI esa yo'q edi — "nega mijoz sotib ololmadi?" degan
+    // savolga javob topib bo'lmasdi. Endi sabab (url + xabar) warn sifatida
+    // yoziladi. Faqat ichki xabar; foydalanuvchi ma'lumotlari yozilmaydi.
+    if (status >= 400 && status < 500 && status !== HttpStatus.NOT_MODIFIED) {
+      this.logger.warn(`[${req.traceId ?? '-'}] ${status} ${req.url} -> ${message}`);
+    }
+
     const payload: ErrorResponseBody = {
       statusCode: status,
       message,

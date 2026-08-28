@@ -2,17 +2,18 @@
 
 import { use, useState } from 'react';
 import { useMutation, useQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
-import { Lock, Unlock } from 'lucide-react';
+import { Lock, Minus, Plus, Unlock, Wallet } from 'lucide-react';
 import type { AdminUserDetail, AdminUserListItem, CursorPage } from '@/lib/types';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { NumberStatusBadge } from '@/components/number-status-badge';
 import { UserStatusBadge } from '@/components/user-status-badge';
 import { UserTimeline } from '@/components/users/timeline';
 import dynamic from 'next/dynamic';
-import { apiGetAdminUser, apiUpdateUser, apiUserOrders } from '@/lib/endpoints';
+import { apiAdjustUserBalance, apiGetAdminUser, apiUpdateUser, apiUserOrders } from '@/lib/endpoints';
 import { formatDateTime, formatMoney } from '@/lib/format';
 import { toast } from '@/stores/toast-store';
 import { cn } from '@/lib/cn';
@@ -143,6 +144,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
               <Row label="Eventlar" value={user.stats.eventsCount.toString()} />
             </CardBody>
           </Card>
+          {canBlock && <BalanceCard userId={user.id} balance={user.balance ?? 0} />}
         </div>
       )}
 
@@ -150,6 +152,93 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
       {tab === 'interests' && <UserInterests userId={user.id} />}
       {tab === 'orders' && <UserOrdersTab userId={user.id} />}
     </div>
+  );
+}
+
+/**
+ * Mijoz balansini qo'lda tuzatish.
+ *
+ * Qo'shilgan summa do'kon hamyonidan yechiladi, yechilgan summa hamyonga
+ * qaytadi — shuning uchun hamyon balansi ham darhol yangilanadi.
+ */
+function BalanceCard({ userId, balance }: { userId: string; balance: number }) {
+  const qc = useQueryClient();
+  const [amount, setAmount] = useState('');
+  const [note, setNote] = useState('');
+
+  const adjust = useMutation({
+    mutationFn: (delta: number) => apiAdjustUserBalance(userId, delta, note || undefined),
+    onSuccess: (res, delta) => {
+      qc.setQueryData<AdminUserDetail>(['admin-user', userId], (old) =>
+        old ? { ...old, balance: res.balance } : old,
+      );
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+      qc.invalidateQueries({ queryKey: ['wallet'] });
+      setAmount('');
+      setNote('');
+      toast.success(
+        delta > 0
+          ? `${formatMoney(delta)} qo'shildi`
+          : `${formatMoney(-delta)} yechildi`,
+      );
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : 'Xatolik yuz berdi'),
+  });
+
+  const value = Number(amount.replace(/\s/g, ''));
+  const valid = Number.isFinite(value) && value > 0;
+
+  return (
+    <Card className="lg:col-span-3">
+      <CardHeader title="Balans" />
+      <CardBody className="space-y-3 text-sm">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[var(--color-text-muted)] flex items-center gap-2">
+            <Wallet size={15} /> Joriy balans
+          </span>
+          <span className="text-lg font-bold text-[var(--color-primary)]">
+            {formatMoney(balance)}
+          </span>
+        </div>
+        <Input
+          inputMode="numeric"
+          placeholder="Summa (so'm)"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ''))}
+        />
+        <Input
+          placeholder="Izoh (ixtiyoriy)"
+          value={note}
+          maxLength={200}
+          onChange={(e) => setNote(e.target.value)}
+        />
+        <div className="flex gap-2">
+          <Button
+            fullWidth
+            variant="success"
+            disabled={!valid}
+            loading={adjust.isPending && adjust.variables! > 0}
+            onClick={() => adjust.mutate(value)}
+          >
+            <Plus size={15} /> Qo&apos;shish
+          </Button>
+          <Button
+            fullWidth
+            variant="danger"
+            disabled={!valid}
+            loading={adjust.isPending && adjust.variables! < 0}
+            onClick={() => adjust.mutate(-value)}
+          >
+            <Minus size={15} /> Yechish
+          </Button>
+        </div>
+        <p className="text-xs text-[var(--color-text-muted)]">
+          Qo&apos;shilgan summa do&apos;kon hamyoningizdan yechiladi, yechilgan summa
+          hamyoningizga qaytadi.
+        </p>
+      </CardBody>
+    </Card>
   );
 }
 

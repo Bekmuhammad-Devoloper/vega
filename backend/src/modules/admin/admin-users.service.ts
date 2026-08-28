@@ -1,5 +1,9 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
-import { EventType, Prisma } from "@prisma/client";
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
+import { EventType, Prisma, WalletTxType } from "@prisma/client";
 import { PrismaService } from "@/prisma/prisma.service";
 import { buildCursorPage, type CursorPage } from "@/common/helpers/pagination";
 
@@ -34,21 +38,42 @@ export class AdminUsersService {
       }
     }
 
+    // Do'kon mijozi = shu do'konga BUYURTMA bergan YOKI BALANS to'ldirgan.
+    // Faqat buyurtma bo'yicha filtrlash hali xarid qilmagan (masalan balansi
+    // yetmagan) mijozni ro'yxatdan butunlay yashirar edi — aynan ularga
+    // qo'lda balans tuzatish kerak bo'ladi.
+    const membership: Prisma.UserWhereInput[] = [];
+    if (tenantId) {
+      const topupRows = await this.prisma.balanceTopup.findMany({
+        where: { tenantId },
+        select: { userId: true },
+        distinct: ["userId"],
+        take: 5000,
+      });
+      membership.push({ orders: { some: { tenantId } } });
+      if (topupRows.length) {
+        membership.push({ id: { in: topupRows.map((r) => r.userId) } });
+      }
+    }
+
+    // AND ishlatamiz: qidiruv OR'i bilan tenant OR'i bir-birini bosib ketmasin.
     const where: Prisma.UserWhereInput = {
       ...blockFilter,
-      // Sotuvchi faqat O'Z do'koniga buyurtma bergan mijozlarni ko'radi.
-      // (User global model — tenant filtri orders orqali qo'yiladi.)
-      ...(tenantId ? { orders: { some: { tenantId } } } : {}),
-      ...(params.q
-        ? {
-            OR: [
-              { username: { contains: params.q, mode: "insensitive" } },
-              { firstName: { contains: params.q, mode: "insensitive" } },
-              { lastName: { contains: params.q, mode: "insensitive" } },
-              { phone: { contains: params.q, mode: "insensitive" } },
-            ],
-          }
-        : {}),
+      AND: [
+        ...(membership.length ? [{ OR: membership }] : []),
+        ...(params.q
+          ? [
+              {
+                OR: [
+                  { username: { contains: params.q, mode: "insensitive" as const } },
+                  { firstName: { contains: params.q, mode: "insensitive" as const } },
+                  { lastName: { contains: params.q, mode: "insensitive" as const } },
+                  { phone: { contains: params.q, mode: "insensitive" as const } },
+                ],
+              },
+            ]
+          : []),
+      ],
     };
     const rows = await this.prisma.user.findMany({
       where,
@@ -71,6 +96,7 @@ export class AdminUsersService {
       photoUrl: u.photoUrl,
       phone: u.phone,
       language: u.language,
+      balance: Number(u.balance),
       // Tenant admin uchun shu do'kondagi blok holati
       isBlocked: tenantId
         ? ((u as { tenantBlocks?: unknown[] }).tenantBlocks?.length ?? 0) > 0
@@ -82,14 +108,115 @@ export class AdminUsersService {
     return buildCursorPage(items, limit);
   }
 
+  /**
+   * Mijoz balansini qo'lda tuzatish (reseller paneli).
+   *
+   * PUL YO'Q JOYDAN PAYDO BO'LMAYDI: mijozga qo'shilgan summa resellerning
+   * ulgurji hamyonidan yechiladi, olib qo'yilgan summa esa hamyonga qaytadi.
+   * Aks holda reseller o'ziga cheksiz balans yasay olardi.
+   *
+   *   delta > 0  -> hamyon -= delta,  mijoz += delta   (hamyonda yetarli bo'lsa)
+   *   delta < 0  -> mijoz  -= |delta|, hamyon += |delta| (mijozda yetarli bo'lsa)
+   *
+   * Hammasi bitta tranzaksiyada va SHARTLI yangilash bilan — ikki marta
+   * bosilsa yoki bir vaqtda ikki so'rov kelsa ham manfiy balans chiqmaydi.
+   */
+  async adjustBalance(
+    userId: string,
+    tenantId: string,
+    delta: number,
+    note?: string,
+  ) {
+    if (!Number.isFinite(delta) || delta === 0) {
+      throw new BadRequestException("Summa noto'g'ri");
+    }
+    // Faqat SHU do'konning mijozi (buyurtma yoki to'ldirish tarixi bo'yicha).
+    const [hasOrder, hasTopup] = await Promise.all([
+      this.prisma.numberOrder.findFirst({
+        where: { userId, tenantId },
+        select: { id: true },
+      }),
+      this.prisma.balanceTopup.findFirst({
+        where: { userId, tenantId },
+        select: { id: true },
+      }),
+    ]);
+    if (!hasOrder && !hasTopup) {
+      throw new NotFoundException("Bu mijoz sizning do'koningizga tegishli emas");
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      if (delta > 0) {
+        // Hamyondan yechamiz — faqat yetarli bo'lsa (shartli).
+        const w = await tx.tenant.updateMany({
+          where: { id: tenantId, walletBalance: { gte: delta } },
+          data: { walletBalance: { decrement: delta } },
+        });
+        if (w.count !== 1) {
+          throw new BadRequestException(
+            "Hamyoningizda mablag' yetarli emas. Avval ulgurji hamyonni to'ldiring.",
+          );
+        }
+      } else {
+        // Mijozdan yechamiz — faqat yetarli bo'lsa (shartli).
+        const need = -delta;
+        const u = await tx.user.updateMany({
+          where: { id: userId, balance: { gte: need } },
+          data: { balance: { decrement: need } },
+        });
+        if (u.count !== 1) {
+          throw new BadRequestException(
+            "Mijoz balansida shuncha mablag' yo'q",
+          );
+        }
+        await tx.tenant.update({
+          where: { id: tenantId },
+          data: { walletBalance: { increment: need } },
+        });
+      }
+
+      if (delta > 0) {
+        await tx.user.update({
+          where: { id: userId },
+          data: { balance: { increment: delta } },
+        });
+      }
+
+      const t = await tx.tenant.findUnique({
+        where: { id: tenantId },
+        select: { walletBalance: true },
+      });
+      await tx.walletTransaction.create({
+        data: {
+          tenantId,
+          type: WalletTxType.ADJUSTMENT,
+          amount: -delta, // hamyon nuqtai nazaridan
+          balanceAfter: t?.walletBalance ?? 0,
+          note: note?.trim() || "Mijoz balansini qo'lda tuzatish",
+        },
+      });
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: { id: true, balance: true },
+      });
+      return { ok: true, balance: Number(user?.balance ?? 0) };
+    });
+  }
+
   async getById(id: string, tenantId?: string | null) {
     // Sotuvchi faqat o'z mijozini ko'ra oladi — boshqa do'kon mijozi bo'lsa 404.
     if (tenantId) {
-      const isCustomer = await this.prisma.numberOrder.findFirst({
-        where: { userId: id, tenantId },
-        select: { id: true },
-      });
-      if (!isCustomer) throw new NotFoundException("User not found");
+      const [hasOrder, hasTopup] = await Promise.all([
+        this.prisma.numberOrder.findFirst({
+          where: { userId: id, tenantId },
+          select: { id: true },
+        }),
+        this.prisma.balanceTopup.findFirst({
+          where: { userId: id, tenantId },
+          select: { id: true },
+        }),
+      ]);
+      if (!hasOrder && !hasTopup) throw new NotFoundException("User not found");
     }
 
     const u = await this.prisma.user.findUnique({
@@ -123,6 +250,7 @@ export class AdminUsersService {
     return {
       ...u,
       telegramId: u.telegramId.toString(),
+      balance: Number(u.balance),
       isBlocked,
       stats: {
         ordersCount: totals._count,

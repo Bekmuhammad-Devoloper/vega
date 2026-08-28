@@ -1,6 +1,26 @@
-import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { Transform, Type } from 'class-transformer';
-import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { AdminRole, EventType, type Admin } from '@prisma/client';
 import { AdminJwtGuard } from '../admin-auth/admin-jwt.guard';
 import { CurrentAdmin, Roles, RolesGuard } from '../admin-auth/roles.guard';
@@ -19,6 +39,12 @@ class ListUsersDto {
 
 class UpdateUserDto {
   @IsOptional() @IsBoolean() isBlocked?: boolean;
+}
+
+class AdjustBalanceDto {
+  /** Musbat — mijozga qo'shish, manfiy — mijozdan yechish. */
+  @Type(() => Number) @IsNumber() delta!: number;
+  @IsOptional() @IsString() @MaxLength(200) note?: string;
 }
 
 class TimelineDto {
@@ -57,6 +83,19 @@ export class AdminUsersController {
   update(@Param('id') id: string, @Body() dto: UpdateUserDto, @CurrentAdmin() admin: Admin) {
     if (dto.isBlocked !== undefined) return this.users.block(id, dto.isBlocked, admin.tenantId);
     return { ok: true };
+  }
+
+  /** Mijoz balansini qo'lda tuzatish (musbat — qo'shish, manfiy — yechish). */
+  @Post(':id/balance')
+  @Roles(AdminRole.SUPERADMIN, AdminRole.ADMIN)
+  @HttpCode(200)
+  adjustBalance(
+    @Param('id') id: string,
+    @Body() dto: AdjustBalanceDto,
+    @CurrentAdmin() admin: Admin,
+  ) {
+    if (!admin.tenantId) throw new BadRequestException("Do'kon topilmadi");
+    return this.users.adjustBalance(id, admin.tenantId, dto.delta, dto.note);
   }
 
   @Get(':id/timeline')

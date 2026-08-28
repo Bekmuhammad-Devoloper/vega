@@ -203,6 +203,8 @@ export interface AdminUserListItem {
   photoUrl: string | null;
   phone: string | null;
   language: 'uz' | 'ru';
+  /** Mijozning shu do'kondagi hisob balansi (so'm). */
+  balance: number;
   isBlocked: boolean;
   ordersCount: number;
   cartCount: number;
