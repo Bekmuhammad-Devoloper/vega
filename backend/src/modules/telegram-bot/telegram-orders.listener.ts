@@ -228,20 +228,12 @@ export class TelegramOrdersListener implements OnModuleInit {
     const order = await this.prisma.numberOrder.findUnique({ where: { id: orderId } });
     if (!order || order.status !== 'WAITING_CODE') return;
 
-    await this.prisma.numberOrder.update({
-      where: { id: orderId },
-      data: {
-        status: 'CANCELLED',
-        cancelledAt: new Date(),
-        events: { create: { status: 'CANCELLED', comment: 'Kanal tugmasi: bekor qilindi' } },
-      },
-    });
-
-    // tenantId SHART: admin socket'i hodisani faqat SHU do'kon xonasiga yuboradi.
-    this.events.emit('order.status_changed', {
-      orderId,
-      status: 'CANCELLED',
-      tenantId: order.tenantId,
-    });
+    // DIQQAT: ilgari bu yerda DB'ga TO'G'RIDAN-TO'G'RI status yozilardi —
+    // mijoz puli QAYTARILMASDI (xabari esa "Mablag' qaytarildi" der edi) va
+    // provayderda ham bekor qilinmasdi. Endi to'liq cancel oqimi
+    // (NumbersService.cancel: refund + poyga guard'lari + hodisalar)
+    // `order.cancel_requested` hodisasi orqali ishga tushadi — modul
+    // aylanasiz (listener NumbersService'ga bog'lanmaydi).
+    this.events.emit('order.cancel_requested', { orderId });
   }
 }

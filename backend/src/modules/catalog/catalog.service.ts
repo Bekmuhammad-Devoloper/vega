@@ -134,8 +134,15 @@ export class CatalogService {
 
     // Tan narx = provayder real narxi (so'mda, 100 gacha yaxlit) + belgilangan
     // ustama (default 1000 so'm). Ya'ni platforma har raqamdan shu farqni oladi.
-    const rate = Number(this.config.get('USD_TO_UZS') ?? 12000);
-    const fixed = Number(this.config.get('MARKUP_FIXED_UZS') ?? 1000);
+    //
+    // XAVFSIZ PARSE: `Number('')` = 0 va `Number('12 000')` = NaN! Kurs 0 bo'lsa
+    // raqamlar deyarli TEKINGA sotilardi (costUzs=0 + 1000 so'm), NaN bo'lsa
+    // xarid provayderdan raqam OLINGANDAN KEYIN yiqilardi. Faqat musbat chekli
+    // qiymat qabul qilinadi, aks holda default.
+    const rateRaw = Number(this.config.get('USD_TO_UZS'));
+    const rate = Number.isFinite(rateRaw) && rateRaw > 0 ? rateRaw : 12000;
+    const fixedRaw = Number(this.config.get('MARKUP_FIXED_UZS'));
+    const fixed = Number.isFinite(fixedRaw) && fixedRaw >= 0 ? fixedRaw : 1000;
     const costUzs = Math.round((costUsd * rate) / 100) * 100;
     const wholesaleUzs = costUzs + fixed;
 

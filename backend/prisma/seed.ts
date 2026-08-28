@@ -70,7 +70,7 @@ const TARIFFS = [
 
 // ── Xizmatlar (HeroSMS kodi; telegram = SPIDER real SIM) ──
 const SERVICES = [
-  { slug: 'telegram', nameUz: 'Telegram', nameRu: 'Telegram', emoji: '✈️', heroCode: 'tg', telegramOnly: true, position: 1 },
+  { slug: 'telegram', nameUz: 'Telegram', nameRu: 'Telegram', emoji: '💙', heroCode: 'tg', telegramOnly: true, position: 1 },
   { slug: 'whatsapp', nameUz: 'WhatsApp', nameRu: 'WhatsApp', emoji: '💚', heroCode: 'wa', telegramOnly: false, position: 2 },
   { slug: 'instagram', nameUz: 'Instagram', nameRu: 'Instagram', emoji: '📸', heroCode: 'ig', telegramOnly: false, position: 3 },
   { slug: 'google', nameUz: 'Google / Gmail', nameRu: 'Google / Gmail', emoji: '✉️', heroCode: 'go', telegramOnly: false, position: 4 },

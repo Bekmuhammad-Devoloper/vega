@@ -54,7 +54,11 @@ class EnvSchema {
   @IsOptional() @IsString() TG_API_HASH?: string;
   @IsOptional() @IsString() TG_SESSION?: string;
   @IsOptional() @IsString() USD_TO_UZS?: string;
+  // ESKI nom — kod endi buni O'QIMAYDI (catalog MARKUP_FIXED_UZS ishlatadi).
+  // Moslik uchun qoldirildi.
   @IsOptional() @IsString() MARKUP_PERCENT?: string;
+  /** Platformaning har raqamdan qat'iy ustamasi (so'm). Default: 1000. */
+  @IsOptional() @IsString() MARKUP_FIXED_UZS?: string;
 
   @IsOptional() @IsString() OPENAI_API_KEY?: string;
 }

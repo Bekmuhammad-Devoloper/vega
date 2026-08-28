@@ -69,11 +69,13 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [now, setNow] = useState(() => Date.now());
 
   // Live poll: check endpoint SMS kodni so'raydi; WAITING_CODE holatida har 4s.
-  const { data: order, isLoading } = useQuery({
+  const { data: order, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['number-order', id],
     queryFn: () => apiCheckNumberOrder(id),
     refetchInterval: (q) => (q.state.data?.status === 'WAITING_CODE' ? 4000 : false),
     refetchOnMount: 'always',
+    // Qisqa tarmoq uzilishi pollingni butunlay o'ldirmasin.
+    retry: 2,
   });
 
   // 1s tik — countdown taymer uchun
@@ -84,8 +86,13 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
   const cancel = useMutation({
     mutationFn: () => apiCancelNumberOrder(id),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       haptic('success');
+      // Havoda turgan poll javobi (cancel'dan OLDIN boshlangan) keyinroq kelib
+      // CANCELLED holatni eski WAITING_CODE bilan ustidan yozardi — mijoz
+      // "bekor bo'lmadi" deb o'ylab, tugmani qayta bosardi. Avval in-flight
+      // so'rovlarni bekor qilamiz, keyin yangi holatni yozamiz.
+      await qc.cancelQueries({ queryKey: ['number-order', id] });
       qc.setQueryData(['number-order', id], data);
       qc.invalidateQueries({ queryKey: ['me'] });
       qc.invalidateQueries({ queryKey: ['number-orders'] });
@@ -109,13 +116,33 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     }
   };
 
-  if (isLoading || !order) {
+  if (isLoading) {
     return (
       <div>
         <PageHeader title="..." backHref="/orders" />
         <div className="px-4 py-4 space-y-3">
           <Skeleton className="h-28" />
           <Skeleton className="h-40" />
+        </div>
+      </div>
+    );
+  }
+
+  if (isError || !order) {
+    // Ilgari xato holatda ham skeleton ko'rsatilardi — mijoz pul yechilganini
+    // bilmay ABADIY kulrang ekranga qarab o'tirardi, polling esa boshlanmasdi.
+    return (
+      <div>
+        <PageHeader title={tr(messages, 'common.error')} backHref="/orders" />
+        <div className="px-4 py-10 text-center">
+          <AlertTriangle size={36} className="mx-auto mb-3 text-[var(--color-danger,#ef4444)]" />
+          <p className="text-sm font-medium mb-1">{tr(messages, 'common.error')}</p>
+          <p className="text-xs text-[var(--color-text-muted,#64748b)] mb-4">
+            Buyurtma holatini yuklab bo&apos;lmadi. Internetni tekshirib qayta urining.
+          </p>
+          <Button onClick={() => refetch()} loading={isFetching}>
+            {tr(messages, 'common.retry')}
+          </Button>
         </div>
       </div>
     );

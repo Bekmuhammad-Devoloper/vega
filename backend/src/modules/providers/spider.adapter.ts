@@ -52,14 +52,18 @@ export class SpiderAdapter implements ProviderAdapter {
     url.searchParams.set('action', action);
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
 
+    // TIMEOUT SHART: usiz osilgan bitta so'rov (provayder javob bermay qolsa)
+    // butun polling cron'ini cheksiz bloklab, HAMMA kutayotgan buyurtmalar
+    // kod olmay qolardi.
     const res = await fetch(url.toString(), {
       headers: { 'User-Agent': PROVIDER_UA, Accept: 'application/json' },
+      signal: AbortSignal.timeout(15_000),
     });
     const text = await res.text();
     try {
       return JSON.parse(text);
     } catch {
-      throw new Error(`SPIDER ${action}: ${text.slice(0, 150)}`);
+      throw new Error(`SPIDER ${action}: ${res.status} ${text.slice(0, 150)}`);
     }
   }
 
@@ -200,6 +204,13 @@ export class SpiderAdapter implements ProviderAdapter {
     ) {
       return { status: 'CANCELLED', code: null, text: null };
     }
+    // Notanish xatolarni (BAD_KEY, NO_ACTIVATION, rate-limit...) JIM yutmaymiz —
+    // ilgari kalit bekor qilinsa ham hamma buyurtma 15 daqiqa "kutish"da
+    // qolib, monitoringda hech narsa ko'rinmasdi. Pul-xavfsizligi uchun baribir
+    // WAITING qaytaramiz (expire keyin refund qiladi), lekin endi logda iz bor.
+    if (err && !err.includes('WITE_CODE') && !err.includes('WAIT')) {
+      this.logger.warn(`getCode ${providerId}: notanish javob '${d?.error}'`);
+    }
     return { status: 'WAITING', code: null, text: null };
   }
 
@@ -211,6 +222,13 @@ export class SpiderAdapter implements ProviderAdapter {
 
   async balanceUsd(): Promise<number> {
     const d = await this.api('getBalance');
-    return Number(d?.result?.wallet ?? 0);
+    // ok tekshirilmasa buzilgan kalit "balans $0" bo'lib ko'rinardi —
+    // superadmin bo'sh hamyon deb adashardi. Endi xato baland ovozda chiqadi
+    // (dashboard buni catch qilib "xato" deb ko'rsatadi).
+    if (!d?.ok) {
+      throw new Error(`SPIDER getBalance: ${d?.error ?? "noma'lum xato"}`);
+    }
+    const n = Number(d?.result?.wallet);
+    return Number.isFinite(n) ? n : 0;
   }
 }

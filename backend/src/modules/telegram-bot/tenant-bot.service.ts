@@ -589,7 +589,7 @@ export class TenantBotService implements OnModuleInit {
           `ishonchli raqamlarni sotib olishingiz mumkin! 🔥\n\n` +
           `📈 Bugungacha <b>${salesShown}</b> ta muvaffaqiyatli sotuv\n` +
           `⚡ SMS kodi soniyalarda keladi · 24/7\n\n` +
-          `🏪 <b>${shop}</b>`;
+          `🛍️ <b>${shop}</b>`;
       } else {
         const kindEmoji =
           review.kind === 'STARS' ? '⭐' : review.kind === 'GIFT' ? '🎁' : '👑';
@@ -607,7 +607,7 @@ export class TenantBotService implements OnModuleInit {
           `ishonchli! 🔥\n\n` +
           `📈 Bugungacha <b>${salesShown}</b> ta muvaffaqiyatli sotuv\n` +
           `⚡ Bir necha soniyada yetkaziladi · 24/7\n\n` +
-          `🏪 <b>${shop}</b>`;
+          `🛍️ <b>${shop}</b>`;
       }
 
       // Tugmalar: "Raqam egasi/Xaridor" (xaridor profili) + "Sotib olish" (do'kon boti)
@@ -929,6 +929,18 @@ export class TenantBotService implements OnModuleInit {
         // Atomik: reseller ulgurji hamyoni yetarlimi -> yechish + ledger,
         // so'ng mijoz balansi += amount. Yetmasa — tasdiqlab bo'lmaydi.
         const user = await this.prisma.$transaction(async (tx) => {
+          // ATOMIK BAND QILISH: PENDING -> APPROVED faqat BIR tomonda. Ilgari
+          // status faqat tranzaksiya TASHQARISIDA o'qilardi — tugma ikki marta
+          // (yoki ikki admin tomonidan) bosilsa ikkalasi ham PENDING ko'rib,
+          // mijozga pul IKKI MARTA o'tkazilardi va hamyondan ikki marta
+          // yechilardi.
+          const claimed = await tx.balanceTopup.updateMany({
+            where: { id: topupId, status: 'PENDING' },
+            data: { status: 'APPROVED' },
+          });
+          if (claimed.count !== 1) {
+            throw new Error("So'rov allaqachon ko'rib chiqilgan");
+          }
           const t = await tx.tenant.findUnique({
             where: { id: topup.tenantId },
             select: { walletBalance: true },
@@ -954,10 +966,7 @@ export class TenantBotService implements OnModuleInit {
               receiptUrl: topup.receiptUrl, // mijoz yuklagan chek
             },
           });
-          await tx.balanceTopup.update({
-            where: { id: topupId },
-            data: { status: 'APPROVED' },
-          });
+          // Status yuqorida (claim'da) APPROVED qilingan.
           return tx.user.update({
             where: { id: topup.userId },
             data: { balance: { increment: amount } },
@@ -978,10 +987,20 @@ export class TenantBotService implements OnModuleInit {
         errMsg = (e as Error).message;
       }
     } else {
-      await this.prisma.balanceTopup.update({
-        where: { id: topupId },
+      // SHARTLI rad etish: approve bilan poygada faqat bittasi g'olib bo'ladi.
+      const rej = await this.prisma.balanceTopup.updateMany({
+        where: { id: topupId, status: 'PENDING' },
         data: { status: 'REJECTED' },
       });
+      if (rej.count !== 1) {
+        await ctx
+          .answerCallbackQuery({
+            text: "⚠️ So'rov allaqachon ko'rib chiqilgan",
+            show_alert: true,
+          })
+          .catch(() => undefined);
+        return;
+      }
       ok = true;
       const user = await this.prisma.user.findUnique({
         where: { id: topup.userId },

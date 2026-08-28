@@ -338,7 +338,10 @@ export default function HomePage() {
                   </div>
                   <button
                     onClick={() => buy.mutate(o)}
-                    disabled={buy.isPending}
+                    // isSuccess ham: onSuccess'dan keyin router.push tugaguncha
+                    // isPending=false bo'lib qoladi — o'sha oynada ikkinchi
+                    // bosish IKKINCHI buyurtma yaratardi (ikki marta pul).
+                    disabled={buy.isPending || buy.isSuccess}
                     className={cn(
                       'h-10 px-4 rounded-xl bg-[var(--color-primary)] text-white text-sm font-semibold inline-flex items-center gap-1.5 shrink-0 active:opacity-90 disabled:opacity-50',
                     )}

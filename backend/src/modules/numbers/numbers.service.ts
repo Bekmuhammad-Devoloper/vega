@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { NumberOrderStatus, ProviderKind} from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { CatalogService } from '../catalog/catalog.service';
@@ -90,7 +90,53 @@ export class NumbersService {
   }
 
   private get usdToUzs(): number {
-    return Number(this.config.get('USD_TO_UZS') ?? 12000);
+    // XAVFSIZ PARSE: `Number('')` = 0! USD_TO_UZS bo'sh string bo'lsa kurs 0
+    // bo'lib, raqamlar deyarli TEKINGA sotilardi. NaN/manfiy ham rad etiladi.
+    const n = Number(this.config.get('USD_TO_UZS'));
+    return Number.isFinite(n) && n > 0 ? n : 12000;
+  }
+
+  /**
+   * Holat o'zgarganda hodisalarni tarqatish — BITTA joydan:
+   *  - order.status_changed  -> admin panel socket + kanal kartochkasi tahriri
+   *    + MIJOZGA BOT ORQALI XABAR (kod kelganda "Kod keldi!" DM'i shu orqali).
+   *    Ilgari provayder oqimi (markReceived/cancel/expire) BUNI EMIT QILMASDI —
+   *    mijoz kodni bot orqali HECH QACHON olmasdi, faqat webapp'ni ochsa ko'rardi.
+   *  - user.order.status_changed -> mijoz WebApp real-time (socket xonasi).
+   */
+  private emitStatusChanged(o: {
+    id: string;
+    status: NumberOrderStatus;
+    tenantId: string;
+    userId: string;
+    orderNumber: string;
+  }): void {
+    this.events.emit('order.status_changed', {
+      orderId: o.id,
+      status: o.status,
+      tenantId: o.tenantId,
+    });
+    this.events.emit('user.order.status_changed', {
+      userId: o.userId,
+      orderId: o.id,
+      status: o.status,
+      orderNumber: o.orderNumber,
+    });
+  }
+
+  /**
+   * Kanaldagi "Bekor qilish" tugmasi shu hodisani yuboradi. Ilgari listener
+   * DB'ga TO'G'RIDAN-TO'G'RI status yozardi: mijoz puli QAYTARILMASDI (xabar
+   * esa "Mablag' qaytarildi" der edi — yolg'on) va provayderda bekor
+   * qilinmasdi. Endi to'liq cancel oqimi (refund + guard'lar) ishlaydi.
+   */
+  @OnEvent('order.cancel_requested', { async: true })
+  async onCancelRequested(payload: { orderId: string }): Promise<void> {
+    try {
+      await this.cancel(payload.orderId, undefined, 'Kanal tugmasi: bekor qilindi');
+    } catch (e) {
+      this.logger.warn(`cancel_requested ${payload.orderId}: ${String(e)}`);
+    }
   }
   private uzs(usd: number): number {
     return Math.round((usd * this.usdToUzs) / 100) * 100;
@@ -216,6 +262,18 @@ export class NumbersService {
       countryIso2: offer.country.iso2,
       countryHeroCode: offer.country.heroCode,
     });
+    // IZ QOLDIRAMIZ: shu nuqtadan keyin jarayon o'lsa/DB yiqilsa raqam DB'da
+    // bo'lmaydi — bu log ulgurji pul qayerga ketganini topishning yagona yo'li.
+    this.logger.log(
+      `buy ok: ${quote.provider} ${bought.providerId} ${bought.phone} (tenant ${tenantId})`,
+    );
+    // Provayder haqiqatda undirgan narx kesh-narxdan sezilarli farq qilsa —
+    // platforma jimgina zarar ko'rmasligi uchun ogohlantirish.
+    if (bought.costUsd > 0 && Math.abs(bought.costUsd - quote.costUsd) > quote.costUsd * 0.1) {
+      this.logger.warn(
+        `narx farqi: kesh $${quote.costUsd} vs provayder $${bought.costUsd} (${offer.country.slug})`,
+      );
+    }
 
     // 3) Mijoz balansidan retail + order yaratish (atomik)
     const profit = retailUzs - wholesaleUzs;
@@ -270,9 +328,17 @@ export class NumbersService {
     }).catch(async (err) => {
       // Raqam allaqachon provayderdan olingan. Tranzaksiya yiqilsa uni
       // bekor qilmasak, pul provayderda qolib ketadi (sof zarar).
+      // DIQQAT: SPIDER'da cancel action YO'Q (no-op) — u yerda ulgurji pul
+      // qaytmaydi; HeroSMS'da esa cancel ishlaydi. Ikkala holatda ham xatoni
+      // JIM yutmaymiz — admin logdan providerId bo'yicha qo'lda hal qiladi.
       await this.providers
         .cancel(quote.provider, bought.providerId)
-        .catch(() => undefined);
+        .catch((cancelErr) => {
+          this.logger.error(
+            `KOMPENSATSIYA YIQILDI: ${quote.provider} ${bought.providerId} ` +
+              `bekor qilinmadi (${String(cancelErr)}) — ulgurji pul provayderda qoldi!`,
+          );
+        });
       throw err;
     });
 
@@ -299,24 +365,48 @@ export class NumbersService {
   }
 
   private async markReceived(id: string, code: string, text: string | null) {
-    const o = await this.prisma.numberOrder.update({
-      where: { id },
-      data: {
-        status: NumberOrderStatus.RECEIVED,
-        code,
-        smsText: text ?? code,
-        receivedAt: new Date(),
-      },
-      include: { service: true, country: true },
+    // ATOMIK BAND QILISH: faqat WAITING_CODE -> RECEIVED. Bu metod IKKI yo'ldan
+    // bir vaqtda chaqirilishi mumkin (cron har 20s + webapp/bot poll) — oddiy
+    // `update` bo'lsa ikkalasi ham o'tib: totalRevenue IKKI marta oshardi,
+    // kanalga IKKITA e'lon ketardi, va eng yomoni — CANCELLED/EXPIRED (pul
+    // allaqachon qaytarilgan) holat RECEIVED bilan USTIDAN yozilib, mijozga
+    // ham refund, ham kod tekin qolardi.
+    // Band qilish + yon ta'sirlar BITTA tranzaksiyada — claim'dan keyin
+    // jarayon o'lsa daromad/hodisa yozuvi yo'qolib qolmasin.
+    const { o, won } = await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.numberOrder.updateMany({
+        where: { id, status: NumberOrderStatus.WAITING_CODE },
+        data: {
+          status: NumberOrderStatus.RECEIVED,
+          code,
+          smsText: text ?? code,
+          receivedAt: new Date(),
+        },
+      });
+      const ord = await tx.numberOrder.findUnique({
+        where: { id },
+        include: { service: true, country: true },
+      });
+      if (!ord) throw new NotFoundException('Buyurtma topilmadi');
+      if (claimed.count !== 1) return { o: ord, won: false };
+
+      // reseller foydasi endi tasdiqlanadi
+      await tx.tenant.update({
+        where: { id: ord.tenantId },
+        data: { totalRevenue: { increment: Number(ord.profit) } },
+      });
+      await tx.numberOrderEvent.create({
+        data: { orderId: id, status: NumberOrderStatus.RECEIVED, comment: 'Kod keldi' },
+      });
+      return { o: ord, won: true };
     });
-    // reseller foydasi endi tasdiqlanadi
-    await this.prisma.tenant.update({
-      where: { id: o.tenantId },
-      data: { totalRevenue: { increment: Number(o.profit) } },
-    });
-    await this.prisma.numberOrderEvent.create({
-      data: { orderId: id, status: NumberOrderStatus.RECEIVED, comment: 'Kod keldi' },
-    });
+
+    // Band qilish bizniki bo'lmasa (boshqa yo'l allaqachon yakunlagan yoki
+    // buyurtma bekor bo'lgan) — hodisalarni QAYTARMAYMIZ.
+    if (!won) return o;
+
+    // Mijozga "Kod keldi!" DM'i + admin panel + webapp real-time.
+    this.emitStatusChanged(o);
     // Sotuv yakunlandi — otziv kanaliga e'lon (ijtimoiy isbot) joylanishi uchun hodisa
     this.events.emit('sale.completed', { orderId: o.id, kind: 'NUMBER' });
     return o;
@@ -328,69 +418,111 @@ export class NumbersService {
     if (o.status === NumberOrderStatus.RECEIVED) {
       throw new BadRequestException("Kod kelgan — bekor qilib bo'lmaydi");
     }
-    if (o.status === NumberOrderStatus.CANCELLED) return o;
+    // FAQAT WAITING_CODE bekor qilinadi. Ilgari shart "CANCELLED emas" edi —
+    // ya'ni EXPIRED buyurtmaga cancel chaqirilsa (mijoz endpointi ochiq!)
+    // pul IKKINCHI marta qaytarilardi: expire allaqachon refund qilgan.
+    if (o.status !== NumberOrderStatus.WAITING_CODE) return o;
     try {
       await this.providers.cancel(o.provider, o.providerId);
     } catch {
       // provayderda bekor bo'lmasa ham davom etamiz
     }
     const updated = await this.prisma.$transaction(async (tx) => {
+      // ATOMIK BAND QILISH: ikki parallel cancel (mijoz tugmani ikki bosdi,
+      // yoki cron "Provayder bekor qildi" bilan bir vaqtda) ikkalasi ham
+      // yuqoridagi o'qishda WAITING_CODE ko'rishi mumkin. Refund faqat
+      // statusni BIRINCHI bo'lib o'zgartirgan tomonda bo'ladi.
+      const claimed = await tx.numberOrder.updateMany({
+        where: { id, status: NumberOrderStatus.WAITING_CODE },
+        data: { status: NumberOrderStatus.CANCELLED, cancelledAt: new Date() },
+      });
+      if (claimed.count !== 1) return null; // poyga — boshqa yo'l hal qilgan
       await tx.user.update({
         where: { id: o.userId },
         data: { balance: { increment: Number(o.retailPrice) } },
-      });
-      const u = await tx.numberOrder.update({
-        where: { id },
-        data: { status: NumberOrderStatus.CANCELLED, cancelledAt: new Date() },
-        include: { service: true, country: true },
       });
       await tx.numberOrderEvent.create({
         data: { orderId: id, status: NumberOrderStatus.CANCELLED, comment: reason },
       });
-      return u;
+      return tx.numberOrder.findUnique({
+        where: { id },
+        include: { service: true, country: true },
+      });
     });
     // Mijozga retail qaytarildi (yuqorida). Reseller hamyoni xaridda yechilmagan
     // (to'ldirishda yechilgan) — shuning uchun bu yerda ham qaytarilmaydi.
-    return updated;
+    if (updated) {
+      // Mijozga "bekor qilindi, pul qaytdi" DM'i + panel + webapp real-time.
+      this.emitStatusChanged(updated);
+    }
+    return updated ?? this.getOrder(id, userId);
   }
 
   // ── Fon: kutayotgan buyurtmalarni poll qilish + muddatini tekshirish ──
+
+  /**
+   * Overlap qo'riqchisi. Cron har 20 soniyada OTADI — oldingi ishga tushish
+   * tugaganini KUTMAYDI. 50 ta order x ~1s tashqi so'rov = 50s > 20s, ya'ni
+   * bir order ustida 2-3 ta parallel check yurishi mumkin edi (poygalarni
+   * kuchaytirib). Endi oldingi tugamaguncha yangi tick shunchaki o'tkaziladi.
+   */
+  private pollBusy = false;
+
   @Cron('*/20 * * * * *')
   async pollWaiting() {
-    const waiting = await this.prisma.numberOrder.findMany({
-      where: { status: NumberOrderStatus.WAITING_CODE },
-      take: 50,
-      orderBy: { createdAt: 'asc' },
-    });
-    for (const o of waiting) {
-      try {
-        if (o.expiresAt < new Date()) {
-          await this.expire(o.id);
-          continue;
-        }
-        const res = await this.providers.check(o.provider, o.providerId);
-        if (res.status === 'RECEIVED' && res.code) {
-          await this.markReceived(o.id, res.code, res.text);
-        } else if (res.status === 'CANCELLED') {
-          await this.cancel(o.id, undefined, 'Provayder bekor qildi');
-        }
-      } catch (e) {
-        this.logger.warn(`poll ${o.id}: ${String(e)}`);
+    if (this.pollBusy) return;
+    this.pollBusy = true;
+    try {
+      const waiting = await this.prisma.numberOrder.findMany({
+        where: { status: NumberOrderStatus.WAITING_CODE },
+        take: 50,
+        orderBy: { createdAt: 'asc' },
+      });
+      // 5 talik guruhlarda parallel — jami vaqt chegaralanadi, provayder esa
+      // bir vaqtda ko'p so'rov bilan bombardimon qilinmaydi.
+      for (let i = 0; i < waiting.length; i += 5) {
+        const batch = waiting.slice(i, i + 5);
+        await Promise.all(
+          batch.map(async (o) => {
+            try {
+              if (o.expiresAt < new Date()) {
+                await this.expire(o.id);
+                return;
+              }
+              const res = await this.providers.check(o.provider, o.providerId);
+              if (res.status === 'RECEIVED' && res.code) {
+                await this.markReceived(o.id, res.code, res.text);
+              } else if (res.status === 'CANCELLED') {
+                await this.cancel(o.id, undefined, 'Provayder bekor qildi');
+              }
+            } catch (e) {
+              this.logger.warn(`poll ${o.id}: ${String(e)}`);
+            }
+          }),
+        );
       }
+    } finally {
+      this.pollBusy = false;
     }
   }
 
   private async expire(id: string) {
-    const o = await this.prisma.numberOrder.findUnique({ where: { id } });
-    if (!o || o.status !== NumberOrderStatus.WAITING_CODE) return;
-    await this.prisma.$transaction(async (tx) => {
+    const expired = await this.prisma.$transaction(async (tx) => {
+      // ATOMIK BAND QILISH: refund faqat statusni WAITING_CODE -> EXPIRED ga
+      // BIRINCHI bo'lib o'tkazgan tomonda. Ilgari o'qish-tekshirish tranzaksiya
+      // TASHQARISIDA edi — ikki parallel expire (yoki expire + cancel) ikkalasi
+      // ham refund qilib, mijozga pul IKKI marta qaytishi mumkin edi.
+      const claimed = await tx.numberOrder.updateMany({
+        where: { id, status: NumberOrderStatus.WAITING_CODE },
+        data: { status: NumberOrderStatus.EXPIRED },
+      });
+      if (claimed.count !== 1) return null; // boshqa yo'l allaqachon hal qilgan
+
+      const o = await tx.numberOrder.findUnique({ where: { id } });
+      if (!o) return null;
       await tx.user.update({
         where: { id: o.userId },
         data: { balance: { increment: Number(o.retailPrice) } },
-      });
-      await tx.numberOrder.update({
-        where: { id },
-        data: { status: NumberOrderStatus.EXPIRED },
       });
       await tx.numberOrderEvent.create({
         data: {
@@ -399,7 +531,12 @@ export class NumbersService {
           comment: 'Muddat tugadi',
         },
       });
+      return o;
     });
     // Mijoz balansi qaytarildi (yuqorida). Reseller hamyoni xaridda yechilmagan.
+    if (expired) {
+      // Mijozga "muddat tugadi, pul qaytdi" DM'i + panel + webapp real-time.
+      this.emitStatusChanged(expired);
+    }
   }
 }

@@ -41,8 +41,10 @@ export class HeroSmsAdapter implements ProviderAdapter {
     for (const [k, v] of Object.entries(params)) {
       url.searchParams.set(k, String(v));
     }
+    // TIMEOUT SHART: usiz osilgan so'rov polling cron'ini bloklaydi.
     const res = await fetch(url.toString(), {
       headers: { 'User-Agent': PROVIDER_UA, Accept: '*/*' },
+      signal: AbortSignal.timeout(15_000),
     });
     const text = await res.text();
     if (!res.ok) {
