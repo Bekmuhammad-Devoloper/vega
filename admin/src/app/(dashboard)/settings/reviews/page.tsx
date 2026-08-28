@@ -301,6 +301,10 @@ export default function ReviewsSettingsPage() {
                   <option value="">— tanlang —</option>
                   {mkServices.map(({ id, service }) => (
                     <option key={id} value={id}>
+                      {/* <option> ichiga rasm qo'yib bo'lmaydi — shuning uchun
+                          xizmatning emoji'si ishlatiladi (native select'da
+                          hamma platformada ko'rinadi). */}
+                      {service.emoji ? `${service.emoji} ` : ''}
                       {service.nameUz ?? 'Xizmat'}
                     </option>
                   ))}
@@ -325,6 +329,7 @@ export default function ReviewsSettingsPage() {
                   </option>
                   {mkCountryOffers.map((o) => (
                     <option key={o.id} value={o.id}>
+                      {o.country?.flag ? `${o.country.flag} ` : ''}
                       {o.country?.nameUz ?? 'Davlat'}
                     </option>
                   ))}
