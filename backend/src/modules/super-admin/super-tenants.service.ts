@@ -264,10 +264,34 @@ export class SuperTenantsService {
   }
 
   async changeTariff(id: string, plan: TariffPlan): Promise<Tenant> {
+    const current = await this.prisma.tenant.findUnique({
+      where: { id },
+      select: { status: true, isActivated: true, activationPaidAt: true },
+    });
+    if (!current) throw new NotFoundException('Tenant not found');
+
+    // Pulli tarif QO'LDA berilsa, do'kon FAOLLASHTIRILGAN hisoblanadi.
+    //
+    // Ilgari bu yerda faqat `tariffPlan` yozilardi va `isActivated` false
+    // bo'lib qolardi. Oqibati jiddiy edi: keyinroq egasi kanalda biror
+    // to'lovni RAD etsa, rad etish yo'li `status = isActivated ? ACTIVE :
+    // PENDING_PAYMENT` deb hisoblab, PULLIK do'konni PENDING_PAYMENT ga
+    // tushirardi — va do'kon mijozlar uchun butunlay yopilib qolardi.
+    const activate = plan !== 'FREE' && !current.isActivated;
     const updated = await this.prisma.tenant.update({
       where: { id },
       data: {
         tariffPlan: plan,
+        ...(activate
+          ? {
+              isActivated: true,
+              activationPaidAt: current.activationPaidAt ?? new Date(),
+              // To'xtatilgan do'konni bu yerdan tiklamaymiz — `resume` bor.
+              ...(current.status === 'PENDING_PAYMENT'
+                ? { status: 'ACTIVE' as const }
+                : {}),
+            }
+          : {}),
       },
     });
     // Pulli tarif qo'lda faollashtirilsa ham — referal komissiya hisoblanadi
