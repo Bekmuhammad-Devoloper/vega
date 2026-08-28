@@ -480,33 +480,73 @@ function TopupSheet({ onClose }: { onClose: () => void }) {
           <div>
             <p className="mb-1.5 text-sm font-medium">Shu manzilga USDT yoki TON yuboring</p>
             <div
-              className="relative w-full rounded-2xl p-4 sm:p-5 text-white overflow-hidden shadow-xl shadow-black/25 select-none"
+              // Balandlik QAT'IY emas: TON manzili uzun va tor ekranda 3 qatorga
+              // bo'linishi mumkin — aspect-ratio bilan qulflansa matn kesilardi.
+              className="relative w-full min-h-[212px] rounded-2xl p-4 sm:p-5 text-white overflow-hidden shadow-xl shadow-black/25 select-none flex flex-col"
               style={{ background: 'linear-gradient(135deg,#0098EA 0%,#0062E0 55%,#0b1f3a 100%)' }}
             >
+              {/* yorug'lik/gloss — plastik karta bilan bir xil */}
+              <div
+                className="pointer-events-none absolute inset-0"
+                style={{ background: 'radial-gradient(130% 130% at 0% 0%, rgba(255,255,255,.16), transparent 42%)' }}
+              />
               <div className="pointer-events-none absolute -right-10 -top-16 h-56 w-40 rotate-[25deg] bg-white/10 blur-2xl" />
+              {/* TON olmos suv belgisi */}
+              <svg
+                className="pointer-events-none absolute -right-6 -bottom-8 h-40 w-40 opacity-[0.13]"
+                viewBox="0 0 24 24"
+                fill="white"
+                aria-hidden
+              >
+                <path d="M12 22 2.5 8.5h19L12 22ZM4.8 7 12 2l7.2 5H4.8Z" />
+              </svg>
 
-              <div className="relative flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5 text-sm font-bold tracking-wide">
+              {/* Yuqori: brend + tarmoq + nusxalash */}
+              <div className="relative flex items-start justify-between">
+                <span className="inline-flex items-center gap-1.5 text-sm font-bold tracking-[0.14em]">
                   <Gem size={17} /> TON
                 </span>
-                <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold">
-                  {crypto?.assets ?? 'USDT · TON'}
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-white/15 backdrop-blur px-2.5 py-0.5 text-[10px] font-semibold whitespace-nowrap">
+                    {crypto?.assets ?? 'USDT · TON'}
+                  </span>
+                  <button
+                    onClick={() => copyText(crypto?.address ?? '')}
+                    className="h-8 w-8 grid place-items-center rounded-lg bg-white/15 backdrop-blur hover:bg-white/25 active:scale-95 transition shrink-0"
+                    aria-label="Manzilni nusxalash"
+                  >
+                    {copied ? <Check size={15} /> : <Copy size={15} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Tarmoq yorlig'i — chip o'rnida */}
+              <div className="relative mt-3 sm:mt-4">
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-white/12 backdrop-blur px-2 py-1 text-[10px] font-semibold uppercase tracking-widest ring-1 ring-inset ring-white/20">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
+                  TON tarmog&apos;i
                 </span>
               </div>
 
-              <div className="relative mt-4">
-                <p className="text-[10px] uppercase tracking-widest opacity-60">Hamyon manzili</p>
-                <p className="mt-1 break-all font-mono text-[13px] leading-snug">
-                  {crypto?.address ?? '…'}
+              {/* Manzil — karta raqami o'rnida */}
+              <div className="relative mt-auto">
+                <p className="text-[9px] uppercase tracking-widest opacity-55">Hamyon manzili</p>
+                <p
+                  className="mt-1 break-all font-mono text-[12.5px] sm:text-[13.5px] leading-snug font-medium"
+                  style={{ textShadow: '0 1px 2px rgba(0,0,0,.35)' }}
+                >
+                  {crypto?.address ?? '••••••••••••••••••••••••'}
                 </p>
               </div>
 
+              {/* Pastki qator: nusxalash tugmasi */}
               <button
                 onClick={() => copyText(crypto?.address ?? '')}
-                className="relative mt-3 inline-flex items-center gap-1.5 rounded-lg bg-white/15 backdrop-blur px-3 py-1.5 text-xs font-semibold hover:bg-white/25"
+                disabled={!crypto?.address}
+                className="relative mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-white/15 backdrop-blur px-3 py-2 text-xs font-semibold hover:bg-white/25 active:scale-[0.98] transition disabled:opacity-50"
               >
                 {copied ? <Check size={14} /> : <Copy size={14} />}
-                {copied ? 'Nusxalandi' : 'Manzilni nusxalash'}
+                {copied ? 'Nusxalandi ✓' : 'Manzilni nusxalash'}
               </button>
             </div>
             <p className="mt-2 text-xs text-[var(--color-text-muted)] leading-relaxed">

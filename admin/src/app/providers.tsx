@@ -7,6 +7,7 @@ import { apiMe } from '@/lib/endpoints';
 import { useAuthStore } from '@/stores/auth-store';
 import { loadAccessToken } from '@/lib/api';
 import { ToastContainer } from '@/components/ui/toast';
+import type { AdminDto } from '@/lib/types';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [client] = useState(
@@ -31,6 +32,27 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Oxirgi muvaffaqiyatli `apiMe()` natijasi — ilovani darhol chizish uchun. */
+const ME_CACHE_KEY = 'admin_me';
+
+function readCachedAdmin(): AdminDto | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(ME_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as AdminDto) : null;
+  } catch {
+    return null;
+  }
+}
+
+function forgetCachedAdmin(): void {
+  try {
+    localStorage.removeItem(ME_CACHE_KEY);
+  } catch {
+    /* localStorage o'chirilgan bo'lishi mumkin */
+  }
+}
+
 function AuthInit({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -42,17 +64,37 @@ function AuthInit({ children }: { children: React.ReactNode }) {
     const isPublic = PUBLIC_PATHS.includes(pathname);
     const token = loadAccessToken();
     if (!token) {
+      forgetCachedAdmin();
       setInitialized(true);
       if (!isPublic) router.replace('/login');
       return;
     }
+
+    // TEZLIK: token bor va oldin muvaffaqiyatli kirgan bo'lsak — ilovani
+    // DARHOL chizamiz, `apiMe()` esa fonda tekshiradi. Ilgari har ochilishda
+    // butun ekran spinner bo'lib turib tarmoq javobi kutilardi (mobil
+    // internetda bu 0.5–2 soniyalik "muzlash" degani edi).
+    const cached = readCachedAdmin();
+    if (cached) {
+      setAdmin(cached);
+      setInitialized(true);
+    }
+
     apiMe()
       .then((admin) => {
         setAdmin(admin);
         setInitialized(true);
+        try {
+          localStorage.setItem(ME_CACHE_KEY, JSON.stringify(admin));
+        } catch {
+          /* kvota to'lgan bo'lishi mumkin — muhim emas */
+        }
         if (isPublic) router.replace('/');
       })
       .catch(() => {
+        // Token yaroqsiz — keshni tozalab, login'ga qaytaramiz.
+        forgetCachedAdmin();
+        setAdmin(null);
         setInitialized(true);
         if (!isPublic) router.replace('/login');
       });

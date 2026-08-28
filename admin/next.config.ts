@@ -15,7 +15,17 @@ const nextConfig: NextConfig = {
     ],
   },
   experimental: {
-    optimizePackageImports: ['lucide-react', 'recharts'],
+    // Barrel-importlarni tree-shake qiladi: bu paketlardan faqat ishlatilgan
+    // qismi bundle'ga tushadi (mobil internetda ilk yuklanish sezilarli tez).
+    optimizePackageImports: [
+      'lucide-react',
+      'recharts',
+      'framer-motion',
+      '@tanstack/react-query',
+      '@tanstack/react-table',
+      'dayjs',
+      'zod',
+    ],
   },
   async rewrites() {
     return [

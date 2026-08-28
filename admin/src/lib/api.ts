@@ -23,7 +23,13 @@ export function setAccessToken(token: string | null): void {
   accessToken = token;
   if (typeof window !== 'undefined') {
     if (token) localStorage.setItem('admin_at', token);
-    else localStorage.removeItem('admin_at');
+    else {
+      localStorage.removeItem('admin_at');
+      // Token bekor qilinganda profil keshi ham ketishi SHART — aks holda
+      // chiqqandan keyin (yoki boshqa akkauntga o'tganda) eski admin
+      // ma'lumoti bir lahzaga ko'rinib qolardi.
+      localStorage.removeItem('admin_me');
+    }
   }
 }
 export function loadAccessToken(): string | null {

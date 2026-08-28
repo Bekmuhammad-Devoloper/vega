@@ -7,16 +7,23 @@ import type { AdminUserDetail, AdminUserListItem, CursorPage } from '@/lib/types
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { NumberStatusBadge } from '@/components/number-status-badge';
+import { UserStatusBadge } from '@/components/user-status-badge';
 import { UserTimeline } from '@/components/users/timeline';
-import { UserInterests } from '@/components/users/interests';
+import dynamic from 'next/dynamic';
 import { apiGetAdminUser, apiUpdateUser, apiUserOrders } from '@/lib/endpoints';
 import { formatDateTime, formatMoney } from '@/lib/format';
 import { toast } from '@/stores/toast-store';
 import { cn } from '@/lib/cn';
 import { useAuthStore } from '@/stores/auth-store';
+
+// "Qiziqishlar" tabi PieChart (recharts) ishlatadi — faqat o'sha tab
+// ochilganda yuklaymiz, profil sahifasi tez ochilishi uchun.
+const UserInterests = dynamic(
+  () => import('@/components/users/interests').then((m) => m.UserInterests),
+  { ssr: false, loading: () => <Skeleton className="h-64 rounded-2xl" /> },
+);
 
 type Tab = 'profile' | 'timeline' | 'interests' | 'orders';
 
@@ -120,7 +127,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
               <Row label="Ism" value={[user.firstName, user.lastName].filter(Boolean).join(' ') || '—'} />
               <Row label="Telefon" value={user.phone ?? '—'} />
               <Row label="Til" value={user.language === 'ru' ? 'Русский' : "O'zbekcha"} />
-              <Row label="Status" value={user.isBlocked ? <Badge tone="red">Bloklangan</Badge> : <Badge tone="green">Faol</Badge>} />
+              <Row label="Status" value={<UserStatusBadge blocked={user.isBlocked} />} />
               <Row label="Oxirgi tashrif" value={formatDateTime(user.lastSeenAt)} />
               <Row label="Ro'yxatdan o'tgan" value={formatDateTime(user.createdAt)} />
             </CardBody>

@@ -1,12 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useQuery } from '@tanstack/react-query';
 import { DollarSign, Phone, TrendingUp, Wallet } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { KpiCard, MoneyValue } from '@/components/dashboard/kpi-card';
 import { LiveActivity } from '@/components/dashboard/live-activity';
-import { TimeseriesChart } from '@/components/dashboard/timeseries-chart';
 import { Card, CardHeader } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -15,6 +15,14 @@ import { apiListNumbers, apiNumbersStats, apiStatsOverview, apiWallet } from '@/
 import { formatCount, formatDateTime, formatMoney } from '@/lib/format';
 import type { AdminNumberOrder } from '@/lib/types';
 import { useAuthStore } from '@/stores/auth-store';
+
+// TEZLIK: grafik `recharts`ga tayanadi (~100kB). Uni statik import qilsak,
+// do'kon egasi ko'radigan BIRINCHI sahifa shuncha ortiqcha JS yuklamaguncha
+// ochilmasdi. Endi sahifa darhol chiziladi, grafik esa keyin keladi.
+const TimeseriesChart = dynamic(
+  () => import('@/components/dashboard/timeseries-chart').then((m) => m.TimeseriesChart),
+  { ssr: false, loading: () => <Skeleton className="h-[280px] rounded-2xl" /> },
+);
 
 export default function DashboardPage() {
   const admin = useAuthStore((s) => s.admin);
