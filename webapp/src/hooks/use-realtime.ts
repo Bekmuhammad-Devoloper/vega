@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { io, type Socket } from 'socket.io-client';
 import { getInitData } from '@/lib/telegram';
+import { getShopSlug } from '@/lib/api';
 import { toast } from '@/stores/toast-store';
 import { useLocaleStore } from '@/stores/locale-store';
 import { getMessages, tr } from '@/i18n';
@@ -30,10 +31,15 @@ export function useRealtime(): void {
     const connect = () => {
       if (cancelled) return;
       const initData = getInitData();
+      // Do'kon slug'i SHART: initData do'konning O'Z boti bilan imzolangan,
+      // server esa tekshirish uchun aynan shu do'kon tokenini olishi kerak.
+      // Slug yuborilmasa server global bot tokeni bilan tekshirib, imzo
+      // noto'g'ri chiqardi va mijoz shaxsiy xabarlarni umuman olmasdi.
+      const tenantSlug = getShopSlug();
       const base = typeof window !== 'undefined' ? window.location.origin : '';
       socket = io(`${base}/user`, {
         path: '/socket.io',
-        auth: { initData },
+        auth: { initData, tenantSlug },
         transports: ['websocket', 'polling'],
         withCredentials: true,
         reconnection: true,

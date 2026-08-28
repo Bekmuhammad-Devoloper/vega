@@ -3,8 +3,23 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { OnGatewayConnection, OnGatewayDisconnect, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '../admin-auth/jwt.service';
+import { PrismaService } from '@/prisma/prisma.service';
 
-const ADMIN_ROOM = 'admin-live';
+/**
+ * Do'kon egasi socket'i.
+ *
+ * DIQQAT — ko'p-ijarachi izolyatsiya: ilgari HAMMA admin bitta `admin-live`
+ * xonasiga qo'shilardi, ya'ni har bir do'kon egasi BOSHQA do'konlarning
+ * buyurtmalari, mijoz harakatlari va support murojaatlarini jonli ko'rib
+ * turardi. Endi har bir admin faqat O'Z do'koni xonasiga qo'shiladi va
+ * hodisalar shu xonagagina yuboriladi.
+ */
+const roomFor = (tenantId: string): string => `admin-live:${tenantId}`;
+/** Platforma egalari (tenantId yo'q) — hamma do'konni kuzatadi. */
+const PLATFORM_ROOM = 'admin-live:platform';
+
+/** Hodisa yuki qaysi do'konga tegishli ekanini bildirishi kerak. */
+type TenantScoped = { tenantId?: string | null };
 
 @WebSocketGateway({
   namespace: '/admin',
@@ -16,7 +31,10 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
 
   @WebSocketServer() server!: Server;
 
-  constructor(private readonly jwt: JwtService) {}
+  constructor(
+    private readonly jwt: JwtService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   private extractToken(client: Socket): string | undefined {
     const authToken = client.handshake.auth?.token as string | undefined;
@@ -28,7 +46,7 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
     return match?.[1];
   }
 
-  handleConnection(client: Socket): void {
+  async handleConnection(client: Socket): Promise<void> {
     const token = this.extractToken(client);
     if (!token) {
       this.logger.warn(`Socket reject (no token): ${client.id}`);
@@ -37,10 +55,26 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
     }
     try {
       const payload = this.jwt.verifyAccess(token);
-      client.data.adminId = payload.sub;
+      // Tenant JWT'da yo'q — HTTP guard'i kabi bazadan o'qiymiz. Bu bir
+      // ULANISHGA bitta so'rov (har xabarga emas), shu bois arzon.
+      const admin = await this.prisma.admin.findUnique({
+        where: { id: payload.sub },
+        select: { id: true, tenantId: true, isActive: true },
+      });
+      if (!admin || !admin.isActive) {
+        this.logger.warn(`Socket reject (admin not found/inactive): ${client.id}`);
+        client.disconnect(true);
+        return;
+      }
+
+      client.data.adminId = admin.id;
       client.data.role = payload.role;
-      client.join(ADMIN_ROOM);
-      this.logger.debug(`Admin socket connected: ${client.id} (admin=${payload.sub})`);
+      client.data.tenantId = admin.tenantId;
+      client.join(admin.tenantId ? roomFor(admin.tenantId) : PLATFORM_ROOM);
+
+      this.logger.debug(
+        `Admin socket connected: ${client.id} (admin=${admin.id} tenant=${admin.tenantId ?? 'platform'})`,
+      );
       client.emit('connected', { ok: true });
     } catch {
       this.logger.warn(`Socket reject (invalid token): ${client.id}`);
@@ -52,27 +86,35 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
     this.logger.debug(`Admin socket disconnected: ${client.id}`);
   }
 
-  emitToAdmins(event: string, payload: unknown): void {
-    this.server?.to(ADMIN_ROOM).emit(event, payload);
+  /**
+   * Hodisani FAQAT tegishli do'kon xonasiga yuboradi.
+   * tenantId noma'lum bo'lsa — hech kimga yubormaymiz (fail-closed). Ilgari
+   * bunday hodisa HAMMAGA ketardi; jim tushib qolish sizib chiqishdan yaxshi,
+   * shuning uchun ogohlantirish yozamiz.
+   */
+  private emitToTenant(tenantId: string | null | undefined, event: string, payload: unknown): void {
+    if (!this.server) return;
+    if (!tenantId) {
+      this.logger.warn(`'${event}' hodisasida tenantId yo'q — yuborilmadi`);
+      return;
+    }
+    this.server.to(roomFor(tenantId)).emit(event, payload);
+    // Platforma egalari hamma do'konni kuzatadi.
+    this.server.to(PLATFORM_ROOM).emit(event, payload);
   }
 
   @OnEvent('user.event')
-  onUserEvent(payload: unknown): void {
-    this.emitToAdmins('user-event', payload);
-  }
-
-  @OnEvent('order.created')
-  onOrderCreated(payload: unknown): void {
-    this.emitToAdmins('order-created', payload);
+  onUserEvent(payload: TenantScoped): void {
+    this.emitToTenant(payload?.tenantId, 'user-event', payload);
   }
 
   @OnEvent('order.status_changed')
-  onOrderStatusChanged(payload: unknown): void {
-    this.emitToAdmins('order-status-changed', payload);
+  onOrderStatusChanged(payload: TenantScoped): void {
+    this.emitToTenant(payload?.tenantId, 'order-status-changed', payload);
   }
 
   @OnEvent('support.ticket_created')
-  onSupportTicket(payload: unknown): void {
-    this.emitToAdmins('support-new-ticket', payload);
+  onSupportTicket(payload: TenantScoped): void {
+    this.emitToTenant(payload?.tenantId, 'support-new-ticket', payload);
   }
 }

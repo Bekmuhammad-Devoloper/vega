@@ -79,3 +79,33 @@ Legend: ✅ fixed · 🔧 recommended fix below · ⚠️ needs a design decisio
 ---
 
 *Re-run the exploration after a remediation pass to confirm closure. The cross-tenant items (F3–F7) and the WebApp-socket token bug are the highest value-to-risk fixes to tackle first.*
+
+---
+
+## ✅ Fixed (2026-08-28)
+
+### F6 — `NotificationsGateway` cross-tenant live feed `[CRITICAL]`
+Every store admin joined one shared `admin-live` room, so **each store owner received other stores' orders, customer events and support tickets in real time**. Fixed: admins now join `admin-live:<tenantId>` (resolved from the DB on connect, mirroring `AdminJwtGuard`); platform admins join `admin-live:platform`. `emitToTenant()` is **fail-closed** — an event with no `tenantId` is dropped and logged rather than broadcast. `order.status_changed` and `support.ticket_created` now carry `tenantId`. Dead `order.created` listener removed (that event is never emitted).
+Test: `notifications.gateway.spec.ts` (4 cases incl. fail-closed + platform room).
+
+### WebApp `/user` socket — per-tenant customers got no personal events `[HIGH]`
+`authenticate(initData)` was called **without** the tenant bot token, so initData signed by a tenant's own bot always failed HMAC → `userId = null` → the customer never joined `user:<id>` and never received order-status / support events. Fixed: webapp now sends `tenantSlug` in the handshake; the gateway resolves it via `TenantScopeService` and passes the tenant's bot token, exactly like `TelegramAuthGuard`.
+
+### Storefront "Xatolik yuz berdi" — provider request stampede `[HIGH]`
+`numbers.storefront()` called `isAvailable()` **per offer**; the 3-minute cache is only written *after* the response, so a cold cache meant N concurrent provider calls (Cloudflare throttled them → timeout → the customer saw an error). Fixed: in-flight request coalescing in both `herosms`/`spider` adapters + `storefront()` fetches each availability map **once** and filters in memory. 50 external calls → 1.
+Test: `herosms.adapter.spec.ts` (3 cases).
+
+### `HttpExceptionFilter` leaked internals `[MEDIUM]`
+Unhandled `Error.message` was returned verbatim with the 500 (Prisma queries, provider response bodies, file paths). Now the client gets a generic message; the detail is logged server-side with the `traceId`.
+
+### Dev auth bypass hardened `[MEDIUM]`
+`TelegramAuthGuard.devMode` was `NODE_ENV !== 'production'` alone — if `NODE_ENV` were unset or misspelled in pm2/systemd, **anyone could authenticate without initData in production**. Now requires an explicit `ENABLE_DEV_AUTH=true` **and** a non-production `NODE_ENV`. Documented in `.env.example`.
+
+### F5 (settings half) — stores overwrote each other's settings `[MEDIUM]`
+`Settings.key` is the primary key, i.e. rows are global; every store owner read and **overwrote the same row** (e.g. "minimum order amount" changed for everyone). Fixed without a migration by namespacing per store: `t:<tenantId>:<key>`. Platform-level rows keep their bare key, so the `settings.service` fallback still works. The API still speaks the short key, so the UI is unchanged.
+
+> Verified already fixed since the original audit (no action needed): **F4** (broadcast is tenant-scoped and sends via the tenant bot), **F5 support half** (tickets scoped by `admin.tenantId`).
+
+### Still open — needs a product decision
+- **F7 — orders channel**: orders still post to one **global** channel via the global bot (`ordersChannelId` from env). Giving each store its own channel needs a `Tenant.ordersChannelId` column + owner-facing UI + a fallback rule when unset. Not blind-patched.
+- **F-throttle**, **F1**, **F-orderpaid**: unchanged, see above.

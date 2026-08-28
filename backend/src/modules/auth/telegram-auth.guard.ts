@@ -9,7 +9,17 @@ const DEV_TELEGRAM_ID = 999000001;
 
 @Injectable()
 export class TelegramAuthGuard implements CanActivate {
-  private readonly devMode = process.env.NODE_ENV !== 'production';
+  /**
+   * Dev bypass — initData'siz "DEV" foydalanuvchi sifatida kirish.
+   *
+   * XAVFSIZLIK: ilgari bu FAQAT `NODE_ENV !== 'production'` ga bog'liq edi.
+   * `NODE_ENV` o'rnatilmasa yoki xato yozilsa (pm2/systemd konfiguratsiyasida
+   * oson bo'ladigan xato), jonli serverda HAR KIM initData'siz kira olardi.
+   * Endi ochiq `ENABLE_DEV_AUTH=true` talab qilinadi VA ishlab chiqarishda
+   * baribir yoqilmaydi — ikki tomonlama qulf.
+   */
+  private readonly devMode =
+    process.env.ENABLE_DEV_AUTH === 'true' && process.env.NODE_ENV !== 'production';
 
   constructor(
     private readonly auth: AuthService,

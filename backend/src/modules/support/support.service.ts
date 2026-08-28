@@ -17,7 +17,11 @@ export class SupportService {
     const ticket = await this.prisma.supportTicket.create({
       data: { userId, tenantId: tenantId ?? null, subject: input.subject, message: input.message },
     });
-    this.events.emit('support.ticket_created', { ticketId: ticket.id });
+    // tenantId SHART: admin socket'i hodisani faqat SHU do'kon xonasiga yuboradi.
+    this.events.emit('support.ticket_created', {
+      ticketId: ticket.id,
+      tenantId: ticket.tenantId,
+    });
     return ticket;
   }
 

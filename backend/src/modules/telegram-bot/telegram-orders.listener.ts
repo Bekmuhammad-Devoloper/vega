@@ -233,6 +233,11 @@ export class TelegramOrdersListener implements OnModuleInit {
       },
     });
 
-    this.events.emit('order.status_changed', { orderId, status: 'CANCELLED' });
+    // tenantId SHART: admin socket'i hodisani faqat SHU do'kon xonasiga yuboradi.
+    this.events.emit('order.status_changed', {
+      orderId,
+      status: 'CANCELLED',
+      tenantId: order.tenantId,
+    });
   }
 }

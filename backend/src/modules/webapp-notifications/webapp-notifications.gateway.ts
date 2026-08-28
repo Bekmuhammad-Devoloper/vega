@@ -3,6 +3,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { OnGatewayConnection, OnGatewayDisconnect, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { AuthService } from '../auth/auth.service';
+import { TenantScopeService } from '@/common/tenant-scope/tenant-scope.service';
 
 /**
  * Foydalanuvchi WebApp uchun real-time gateway.
@@ -22,7 +23,10 @@ export class WebAppNotificationsGateway implements OnGatewayConnection, OnGatewa
 
   @WebSocketServer() server!: Server;
 
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly tenantScope: TenantScopeService,
+  ) {}
 
   async handleConnection(client: Socket): Promise<void> {
     try {
@@ -30,10 +34,21 @@ export class WebAppNotificationsGateway implements OnGatewayConnection, OnGatewa
         (client.handshake.auth?.initData as string | undefined) ??
         (client.handshake.query?.initData as string | undefined);
 
+      // Do'kon slug'i — initData O'SHA do'konning boti bilan imzolangan.
+      // Ilgari bu uzatilmasdi va tekshiruv GLOBAL bot tokeni bilan bo'lardi,
+      // ya'ni do'kon mijozlari uchun imzo har doim NOTO'G'RI chiqardi:
+      // userId=null bo'lib, shaxsiy xona (`user:<id>`) ga qo'shilmasdi va
+      // buyurtma holati/support javoblari real vaqtda umuman kelmasdi.
+      const slug =
+        (client.handshake.auth?.tenantSlug as string | undefined) ??
+        (client.handshake.query?.tenantSlug as string | undefined) ??
+        (client.handshake.headers['x-tenant-slug'] as string | undefined);
+      const scope = slug ? await this.tenantScope.resolve(slug) : null;
+
       let userId: string | null = null;
       if (initData) {
         try {
-          const user = await this.auth.authenticate(initData);
+          const user = await this.auth.authenticate(initData, scope?.botToken ?? undefined);
           userId = user.id;
         } catch {
           // Dev mode bypass — devLogin via guard

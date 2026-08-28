@@ -37,8 +37,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
         if (Array.isArray(obj.message)) details = obj.message;
       }
     } else if (exception instanceof Error) {
-      message = exception.message;
-      this.logger.error(exception.stack);
+      // DIQQAT: ushlanmagan xatoning matni MIJOZGA CHIQMAYDI. Prisma so'rovi,
+      // provayder javobi, fayl yo'li va shunga o'xshash ichki tafsilotlar
+      // xato matnida bo'lishi mumkin. Mijozga umumiy xabar ketadi, tafsilot
+      // esa faqat server jurnalida qoladi (traceId bo'yicha topiladi).
+      this.logger.error(
+        `[${req.traceId ?? '-'}] ${req.url} -> ${exception.message}`,
+        exception.stack,
+      );
     }
 
     const payload: ErrorResponseBody = {

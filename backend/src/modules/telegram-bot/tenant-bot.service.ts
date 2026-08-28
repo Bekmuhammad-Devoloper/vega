@@ -968,7 +968,13 @@ export class TenantBotService implements OnModuleInit {
         },
       });
       // Admin paneli + foydalanuvchi WebApp real-time
-      this.events.emit('order.status_changed', { orderId, status: order.status });
+      // tenantId SHART: admin socket'i hodisani faqat SHU do'kon xonasiga
+      // yuboradi (aks holda boshqa do'kon egalari ham ko'rib qolardi).
+      this.events.emit('order.status_changed', {
+        orderId,
+        status: order.status,
+        tenantId,
+      });
       this.events.emit('user.order.status_changed', {
         userId: order.userId,
         orderId,
