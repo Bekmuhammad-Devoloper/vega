@@ -9,8 +9,12 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TenantBotService } from './tenant-bot.service';
+import { SkipThrottle } from '@nestjs/throttler';
 
 /** Har sotuvchi botining webhook'i: /telegram/t/:tenantId/webhook */
+// Do'kon botlari webhook'i — Telegram serverlaridan keladi.
+// Global throttler bularni 429 qilib, to'lov va bot yangiliklarini uzib qo'yardi.
+@SkipThrottle()
 @Controller('telegram/t')
 export class TenantWebhookController {
   private readonly secret: string;

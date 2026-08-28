@@ -2,7 +2,11 @@ import { Body, Controller, Headers, HttpCode, Logger, Post, UnauthorizedExceptio
 import { ConfigService } from '@nestjs/config';
 import type { Update } from 'grammy/types';
 import { TelegramBotService } from './telegram-bot.service';
+import { SkipThrottle } from '@nestjs/throttler';
 
+// Telegram webhook — Telegram serverlaridan keladi, cheklab bo'lmaydi.
+// Global throttler bularni 429 qilib, to'lov va bot yangiliklarini uzib qo'yardi.
+@SkipThrottle()
 @Controller('telegram')
 export class TelegramWebhookController {
   private readonly logger = new Logger(TelegramWebhookController.name);

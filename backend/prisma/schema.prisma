@@ -363,6 +363,12 @@ model Tenant {
   reviewsChannelId String?
   reviewsEnabled   Boolean @default(false)
 
+  // Buyurtmalar kanali — yangi buyurtma kartochkasi shu yerga tushadi.
+  // Bo'sh bo'lsa buyurtma HECH QAYERGA joylanmaydi. Ilgari hamma do'kon
+  // buyurtmasi bitta GLOBAL kanalga tushar va do'konlar bir-birining
+  // buyurtmalarini ko'rib turardi.
+  ordersChannelId String?
+
   // Do'kon "Biz haqimizda" sahifasida ko'rsatiladigan havolalar (ulangan bo'lsa)
   mainChannelUrl   String? // asosiy kanal (t.me/...)
   reviewChannelUrl String? // otziv kanali havolasi (ko'rsatish uchun)

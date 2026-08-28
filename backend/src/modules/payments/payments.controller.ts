@@ -17,7 +17,11 @@ import { TelegramAuthGuard } from '../auth/telegram-auth.guard';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { PaymeService } from './payme.service';
 import { ClickService } from './click.service';
+import { SkipThrottle } from '@nestjs/throttler';
 
+// Payme/Click webhook'lari — provayder IP'laridan keladi.
+// Global throttler bularni 429 qilib, to'lov va bot yangiliklarini uzib qo'yardi.
+@SkipThrottle()
 @Controller('payments')
 export class PaymentsController {
   constructor(

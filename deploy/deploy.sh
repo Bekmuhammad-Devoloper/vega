@@ -26,19 +26,32 @@ log "  $OLD_SHA -> $NEW_SHA"
 
 cd "$APP_DIR/backend"
 
-# DIQQAT: `npm ci` node_modules'ni BUTUNLAY o'chirib qayta o'rnatadi. Ishlab
-# turgan jarayon shu paytda modul yuklamoqchi bo'lsa — halok bo'ladi, pm2 uni
-# qayta ko'taradi, u yana halok bo'ladi... `max_restarts` (default 15) tugasa
-# pm2 taslim bo'ladi va ilova O'LIK qoladi. Shuning uchun o'rnatishdan oldin
-# to'xtatamiz. Qisqa uzilish — abadiy o'likdan yaxshi.
-log "Jarayon to'xtatilmoqda (o'rnatish uchun)"
-pm2 stop "$PM2_API" >/dev/null 2>&1 || true
+# Bog'liqliklar FAQAT package-lock.json o'zgargandagina qayta o'rnatiladi.
+#
+# Nega: `npm ci` node_modules'ni butunlay o'chirib qayta yozadi. Ishlab turgan
+# jarayon shu paytda modul yuklamoqchi bo'lsa halok bo'ladi (pm2 max_restarts
+# tugasa ilova butunlay o'ladi). Uni har deploy'da to'xtatib turish esa har
+# safar 3-4 daqiqa uzilish demak. Kodgina o'zgargan odatiy deploy'da
+# o'rnatish umuman shart emas — shuning uchun lockfile hash'ini solishtiramiz:
+# o'zgarmagan bo'lsa o'rnatish O'TKAZIB YUBORILADI va uzilish bo'lmaydi.
+LOCK_HASH_FILE="${LOCK_HASH_FILE:-/opt/vega/.lockhash}"
+NEW_LOCK=$(sha256sum package-lock.json 2>/dev/null | cut -d' ' -f1)
+OLD_LOCK=$(cat "$LOCK_HASH_FILE" 2>/dev/null || echo "")
+NEEDS_INSTALL=0
+[ -d node_modules ] || NEEDS_INSTALL=1
+[ "$NEW_LOCK" != "$OLD_LOCK" ] && NEEDS_INSTALL=1
 
-log "Bog'liqliklar"
-# --omit=dev ISHLATMANG. prisma, @nestjs/cli, typescript va hatto
-# @prisma/client ham devDependencies'da — ularsiz `npx prisma` internetdan
-# eng yangi (mos kelmaydigan) versiyani tortadi va build yiqiladi.
-npm ci --no-audit --no-fund
+if [ "$NEEDS_INSTALL" = "1" ]; then
+  log "Bog'liqliklar o'zgargan — jarayon to'xtatilib qayta o'rnatiladi"
+  pm2 stop "$PM2_API" >/dev/null 2>&1 || true
+  # --omit=dev ISHLATMANG: prisma, @nestjs/cli, typescript va @prisma/client
+  # hammasi devDependencies'da — ularsiz build yiqiladi.
+  npm ci --no-audit --no-fund
+  mkdir -p "$(dirname "$LOCK_HASH_FILE")"
+  printf '%s' "$NEW_LOCK" > "$LOCK_HASH_FILE"
+else
+  log "Bog'liqliklar o'zgarmagan — o'rnatish o'tkazib yuborildi (uzilishsiz)"
+fi
 
 log "Prisma"
 # npx emas, lokal binar — versiya qat'iy package.json dan olinsin.

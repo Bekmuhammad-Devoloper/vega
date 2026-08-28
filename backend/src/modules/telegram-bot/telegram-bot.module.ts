@@ -7,6 +7,7 @@ import { TelegramSupportListener } from './telegram-support.listener';
 import { TelegramPaymentsListener } from './telegram-payments.listener';
 import { TelegramPaycfmListener } from './telegram-paycfm.listener';
 import { SaleReviewListener } from './sale-review.listener';
+import { TelegramOrderPaidListener } from './telegram-order-paid.listener';
 import { TenantBotService } from './tenant-bot.service';
 import { TenantWebhookController } from './tenant-webhook.controller';
 
@@ -20,6 +21,7 @@ import { TenantWebhookController } from './tenant-webhook.controller';
     TelegramPaymentsListener,
     TelegramPaycfmListener,
     SaleReviewListener,
+    TelegramOrderPaidListener,
     TenantBotService,
   ],
   exports: [TelegramBotService, TenantBotService],
