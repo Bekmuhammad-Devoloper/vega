@@ -65,11 +65,27 @@ export default function ReviewsSettingsPage() {
   });
 
   // ── Qo'lda sotuv e'loni (marketing) ──────────────────────────
+  // Yo'nalish ikki bosqichda tanlanadi: avval XIZMAT, keyin o'sha xizmatda
+  // mavjud DAVLAT. Ilgari bitta ro'yxatda "xizmat · davlat" birga edi —
+  // o'nlab taklif bo'lganda topish qiyin bo'lardi.
+  const [mkServiceId, setMkServiceId] = useState('');
   const [mkOfferId, setMkOfferId] = useState('');
   const [mkPhone, setMkPhone] = useState('');
   const { data: offers } = useQuery({ queryKey: ['offers'], queryFn: apiListOffers });
   const activeOffers = (offers ?? []).filter((o) => o.isActive);
   const mkOffer = activeOffers.find((o) => o.id === mkOfferId) ?? null;
+  // Takliflardagi noyob xizmatlar (tartib saqlanadi)
+  const mkServices = Array.from(
+    new Map(
+      activeOffers
+        .filter((o) => o.service)
+        .map((o) => [o.serviceId, o.service!]),
+    ).entries(),
+  ).map(([id, service]) => ({ id, service }));
+  // Tanlangan xizmat uchun mavjud davlatlar
+  const mkCountryOffers = mkServiceId
+    ? activeOffers.filter((o) => o.serviceId === mkServiceId)
+    : [];
 
   const marketing = useMutation({
     mutationFn: () => {
@@ -274,12 +290,42 @@ export default function ReviewsSettingsPage() {
                 </p>
               </div>
 
-              <Field label="Yo'nalish (xizmat + davlat)">
-                <Select value={mkOfferId} onChange={(e) => setMkOfferId(e.target.value)}>
+              <Field label="Xizmat">
+                <Select
+                  value={mkServiceId}
+                  onChange={(e) => {
+                    setMkServiceId(e.target.value);
+                    setMkOfferId(''); // xizmat almashsa davlat qayta tanlanadi
+                  }}
+                >
                   <option value="">— tanlang —</option>
-                  {activeOffers.map((o) => (
+                  {mkServices.map(({ id, service }) => (
+                    <option key={id} value={id}>
+                      {service.nameUz ?? 'Xizmat'}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+
+              <Field
+                label="Davlat"
+                hint={
+                  mkServiceId && mkCountryOffers.length === 0
+                    ? "Bu xizmat uchun taklif yo'q"
+                    : undefined
+                }
+              >
+                <Select
+                  value={mkOfferId}
+                  onChange={(e) => setMkOfferId(e.target.value)}
+                  disabled={!mkServiceId}
+                >
+                  <option value="">
+                    {mkServiceId ? '— tanlang —' : '— avval xizmatni tanlang —'}
+                  </option>
+                  {mkCountryOffers.map((o) => (
                     <option key={o.id} value={o.id}>
-                      {o.service?.nameUz ?? 'Xizmat'} · {o.country?.nameUz ?? 'Davlat'}
+                      {o.country?.nameUz ?? 'Davlat'}
                     </option>
                   ))}
                 </Select>
