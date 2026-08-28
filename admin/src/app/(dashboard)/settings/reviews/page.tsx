@@ -2,12 +2,18 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Megaphone, Info, Radio, CheckCircle2, Users, AlertCircle, ClipboardList } from 'lucide-react';
+import { Megaphone, Info, Radio, CheckCircle2, Users, AlertCircle, ClipboardList, Send } from 'lucide-react';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
-import { Field, Input } from '@/components/ui/input';
+import { Field, Input, Select } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { apiReviewChannelInfo, apiUpdateStoreReviews, apiUpdateOrdersChannel } from '@/lib/endpoints';
+import {
+  apiReviewChannelInfo,
+  apiUpdateStoreReviews,
+  apiUpdateOrdersChannel,
+  apiListOffers,
+  apiMarketingSale,
+} from '@/lib/endpoints';
 import { toast } from '@/stores/toast-store';
 import { SettingsHeader, useStore } from '../_shared';
 
@@ -54,6 +60,29 @@ export default function ReviewsSettingsPage() {
       qc.invalidateQueries({ queryKey: ['my-store'] });
       qc.invalidateQueries({ queryKey: ['review-channel-info'] });
       toast.success('Saqlandi');
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  // ── Qo'lda sotuv e'loni (marketing) ──────────────────────────
+  const [mkOfferId, setMkOfferId] = useState('');
+  const [mkPhone, setMkPhone] = useState('');
+  const { data: offers } = useQuery({ queryKey: ['offers'], queryFn: apiListOffers });
+  const activeOffers = (offers ?? []).filter((o) => o.isActive);
+  const mkOffer = activeOffers.find((o) => o.id === mkOfferId) ?? null;
+
+  const marketing = useMutation({
+    mutationFn: () => {
+      if (!mkOffer) throw new Error("Yo'nalishni tanlang");
+      return apiMarketingSale({
+        serviceId: mkOffer.serviceId,
+        countryId: mkOffer.countryId,
+        phone: mkPhone.trim(),
+      });
+    },
+    onSuccess: () => {
+      setMkPhone('');
+      toast.success("E'lon kanalga joylandi");
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -224,6 +253,71 @@ export default function ReviewsSettingsPage() {
                 <ClipboardList size={14} /> Har do&apos;kon o&apos;z kanaliga ega — boshqa
                 do&apos;konlar buyurtmalaringizni ko&apos;rmaydi.
               </div>
+            </CardBody>
+          </Card>
+
+          {/* ── Qo'lda sotuv e'loni (marketing) ──────────────────── */}
+          <Card>
+            <CardHeader
+              title="Qo'lda e'lon qo'shish"
+              subtitle="Kanalni jonlantirish uchun — raqamni yozing, qolganini o'zi to'ldiradi"
+            />
+            <CardBody className="space-y-3">
+              <div className="flex gap-2.5 rounded-2xl bg-[var(--color-bg)] p-3.5">
+                <Info size={16} className="mt-0.5 shrink-0 text-[var(--color-primary)]" />
+                <p className="text-xs leading-relaxed text-[var(--color-text-muted)]">
+                  Narx <b className="text-[var(--color-text)]">avtomatik</b> sizning
+                  &quot;Narxlar&quot;ingizdan olinadi, xaridor esa{' '}
+                  <b className="text-[var(--color-text)]">anonim</b> qoladi — raqamning
+                  oxirgi 4 xonasi yashiriladi va egasining ismi ko&apos;rsatilmaydi.
+                  Bu haqiqiy buyurtma yaratmaydi: hamyon va statistikaga tegmaydi.
+                </p>
+              </div>
+
+              <Field label="Yo'nalish (xizmat + davlat)">
+                <Select value={mkOfferId} onChange={(e) => setMkOfferId(e.target.value)}>
+                  <option value="">— tanlang —</option>
+                  {activeOffers.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.service?.nameUz ?? 'Xizmat'} · {o.country?.nameUz ?? 'Davlat'}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+
+              <Field
+                label="Telefon raqami"
+                hint={
+                  mkOffer
+                    ? `Kanalda narx: ${Number(mkOffer.retailPrice).toLocaleString('ru-RU')} so'm (avtomatik)`
+                    : "Masalan: +998901234567"
+                }
+              >
+                <Input
+                  value={mkPhone}
+                  onChange={(e) => setMkPhone(e.target.value)}
+                  placeholder="+998901234567"
+                  className="font-mono"
+                  inputMode="tel"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                />
+              </Field>
+
+              <Button
+                loading={marketing.isPending}
+                disabled={!mkOffer || mkPhone.trim().length < 7}
+                onClick={() => marketing.mutate()}
+              >
+                <Send size={15} /> Kanalga e&apos;lon qilish
+              </Button>
+
+              {activeOffers.length === 0 && (
+                <div className="flex items-center gap-2 text-xs text-[var(--color-danger)]">
+                  <AlertCircle size={14} /> Avval &quot;Narxlar&quot; bo&apos;limida
+                  yo&apos;nalish qo&apos;shing.
+                </div>
+              )}
             </CardBody>
           </Card>
         </div>

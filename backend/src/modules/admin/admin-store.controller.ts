@@ -113,6 +113,13 @@ class OrdersChannelDto {
   @IsOptional() @IsString() @MaxLength(60) channelId?: string;
 }
 
+class MarketingSaleDto {
+  @IsString() serviceId!: string;
+  @IsString() countryId!: string;
+  // Kanalda faqat maskalangan ko'rinishi chiqadi (oxirgi 4 raqam yashiriladi)
+  @IsString() @MaxLength(20) phone!: string;
+}
+
 class ChannelsDto {
   @IsOptional() @IsString() @MaxLength(200) mainChannelUrl?: string;
   @IsOptional() @IsString() @MaxLength(200) reviewChannelUrl?: string;
@@ -824,6 +831,70 @@ export class AdminStoreController {
       data: { ordersChannelId: ch || null },
     });
     return { ok: true };
+  }
+
+  /**
+   * Kanal uchun QO'LDA sotuv e'loni (marketing).
+   *
+   * Sotuvchi faqat raqamni yozadi — narx do'konning O'Z taklifidan (retail)
+   * avtomatik olinadi, xaridor esa ANONIM qoladi: e'londa raqam maskalanadi
+   * (oxirgi 4 raqam yashirin), xaridor ismi/tugmasi umuman ko'rsatilmaydi.
+   *
+   * DIQQAT: bu haqiqiy buyurtma YARATMAYDI — hamyon, foyda, statistika va
+   * "Bugungacha N ta sotuv" hisoblagichiga tegmaydi. Faqat kanalga e'lon
+   * joylaydi, aks holda moliyaviy hisobot buzilardi.
+   */
+  @Post('marketing-sale')
+  @Roles(...BOSS_ROLES)
+  @HttpCode(200)
+  async marketingSale(@CurrentAdmin() admin: Admin, @Body() dto: MarketingSaleDto) {
+    if (!admin.tenantId) throw new BadRequestException("Do'kon topilmadi");
+
+    const phone = dto.phone.trim();
+    if (!/^\+?\d{7,18}$/.test(phone)) {
+      throw new BadRequestException("Raqam noto'g'ri. Masalan: +998901234567");
+    }
+
+    // Narx do'konning o'z taklifidan olinadi — qo'lda kiritilmaydi.
+    const offer = await this.prisma.resellerOffer.findFirst({
+      where: {
+        tenantId: admin.tenantId,
+        serviceId: dto.serviceId,
+        countryId: dto.countryId,
+        isActive: true,
+      },
+      include: { service: true, country: true },
+    });
+    if (!offer) {
+      throw new BadRequestException(
+        "Bu yo'nalish sizda yo'q. Avval 'Narxlar' bo'limida qo'shing.",
+      );
+    }
+
+    const t = await this.prisma.tenant.findUnique({
+      where: { id: admin.tenantId },
+      select: { reviewsChannelId: true, reviewsEnabled: true },
+    });
+    if (!t?.reviewsChannelId || !t.reviewsEnabled) {
+      throw new BadRequestException(
+        "Avval 'Sotuv e'lonlari' kanalini ulang va yoqing.",
+      );
+    }
+
+    await this.tenantBot.sendSaleReview(admin.tenantId, {
+      type: 'NUMBER',
+      orderNumber: '',
+      price: Number(offer.retailPrice),
+      phone,
+      serviceName: offer.service.nameUz,
+      serviceEmoji: offer.service.emoji,
+      countryName: offer.country.nameUz,
+      countryFlag: offer.country.flag,
+      // buyerUsername / buyerTelegramId BERILMAYDI -> xaridor tugmasi
+      // chiqmaydi, ya'ni egasi anonim qoladi.
+    });
+
+    return { ok: true, price: Number(offer.retailPrice) };
   }
 
   /**

@@ -276,6 +276,13 @@ export const apiUpdateStoreCardPayment = (data: CardPaymentInput) =>
 export const apiUpdateStoreReviews = (data: { channelId: string; enabled: boolean }) =>
   api<{ ok: boolean }>('/admin/store/reviews', { method: 'PUT', body: data });
 
+/**
+ * Kanal uchun qo'lda sotuv e'loni (marketing).
+ * Narx do'kon taklifidan avtomatik olinadi, xaridor anonim qoladi.
+ */
+export const apiMarketingSale = (data: { serviceId: string; countryId: string; phone: string }) =>
+  api<{ ok: boolean; price: number }>('/admin/store/marketing-sale', { method: 'POST', body: data });
+
 /** Buyurtmalar kanali — bo'sh string yuborilsa kanal uziladi. */
 export const apiUpdateOrdersChannel = (channelId: string) =>
   api<{ ok: boolean }>('/admin/store/orders-channel', { method: 'PUT', body: { channelId } });
