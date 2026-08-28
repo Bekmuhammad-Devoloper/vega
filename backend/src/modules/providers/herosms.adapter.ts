@@ -60,6 +60,15 @@ export class HeroSmsAdapter implements ProviderAdapter {
    */
   private stockCache: { at: number; map: Map<string, Set<string>> } | null = null;
   /**
+   * TO'LIQ narx/zaxira jadvali: davlat -> xizmat -> { cost, count }.
+   * `getPrices` (parametrsiz) baribir hammasini qaytaradi, shuning uchun bitta
+   * so'rov ikkala ehtiyojni ham qoplaydi: zaxira (`availableMap`) va narx
+   * (`getPriceUsd`). Narxlar sahifasida har kartochka alohida so'rov
+   * yubormasligi uchun shu kesh MUHIM.
+   */
+  private priceCache: { at: number; map: Map<string, Map<string, { cost: number; count: number }>> } | null =
+    null;
+  /**
    * Ayni damda ketayotgan so'rov. Kesh SOVUQ bo'lganda vitrina o'nlab taklif
    * uchun bu metodni BIR VAQTDA chaqiradi; kesh esa javob kelgandan keyingina
    * yoziladi, ya'ni hammasi provayderga alohida so'rov yuborardi (Cloudflare
@@ -80,17 +89,27 @@ export class HeroSmsAdapter implements ProviderAdapter {
         const text = await this.api('getPrices');
         const data = JSON.parse(text) as Record<
           string,
-          Record<string, { count?: number }>
+          Record<string, { cost?: number; count?: number }>
         >;
         const map = new Map<string, Set<string>>();
+        const prices = new Map<string, Map<string, { cost: number; count: number }>>();
         for (const [country, services] of Object.entries(data ?? {})) {
           const set = new Set<string>();
+          const row = new Map<string, { cost: number; count: number }>();
           for (const [svc, info] of Object.entries(services ?? {})) {
-            if ((info?.count ?? 0) > 0) set.add(svc);
+            const count = Number(info?.count ?? 0);
+            const cost = Number(info?.cost);
+            row.set(svc, { cost: Number.isFinite(cost) ? cost : NaN, count });
+            if (count > 0) set.add(svc);
           }
+          if (row.size) prices.set(country, row);
           if (set.size) map.set(country, set);
         }
-        if (map.size) this.stockCache = { at: Date.now(), map };
+        const at = Date.now();
+        if (map.size) this.stockCache = { at, map };
+        // Narx keshini ham SHU javobdan to'ldiramiz — `getPriceUsd` endi
+        // tashqi so'rov yubormaydi.
+        if (prices.size) this.priceCache = { at, map: prices };
         return map;
       } catch (e) {
         this.logger.warn(`availableMap: ${String(e)}`);
@@ -104,29 +123,31 @@ export class HeroSmsAdapter implements ProviderAdapter {
     return this.stockInFlight;
   }
 
+  /**
+   * (xizmat × davlat) tan narxi.
+   *
+   * TEZLIK: ilgari HAR chaqiruvda provayderga alohida HTTP so'rov ketardi —
+   * "Narxlar" sahifasida har kartochka bittadan so'rov qilib, sahifa juda
+   * sekin ochilardi (Cloudflare ham cheklab qo'yardi). Endi javob 3 daqiqalik
+   * TO'LIQ narx keshidan olinadi: N ta kartochka = 1 ta tashqi so'rov.
+   */
   async getPriceUsd(input: BuyInput): Promise<number | null> {
     const c = input.countryHeroCode;
     const s = input.serviceHeroCode;
     if (!c || !s) return null;
-    try {
-      const text = await this.api('getPrices', { country: c, service: s });
-      let data: Record<
-        string,
-        Record<string, { cost?: number; count?: number }>
-      >;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        return null;
-      }
-      const info = data?.[c]?.[s];
-      if (!info || (info.count ?? 0) <= 0) return null;
-      const n = Number(info.cost);
-      return Number.isFinite(n) ? n : null;
-    } catch (e) {
-      this.logger.warn(`getPriceUsd(${c}/${s}): ${String(e)}`);
-      return null;
+
+    const fresh =
+      this.priceCache && Date.now() - this.priceCache.at < 3 * 60 * 1000
+        ? this.priceCache
+        : null;
+    if (!fresh) {
+      // Keshni to'ldiradi (bir vaqtdagi chaqiruvlar bitta so'rovni kutadi).
+      await this.availableMap();
     }
+
+    const info = this.priceCache?.map.get(c)?.get(s);
+    if (!info || info.count <= 0) return null;
+    return Number.isFinite(info.cost) ? info.cost : null;
   }
 
   async buy(input: BuyInput): Promise<BuyResult> {

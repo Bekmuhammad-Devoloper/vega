@@ -132,44 +132,78 @@ class AdminStatsController {
     // Sotuvchi faqat o'z do'koni buyurtmalarini ko'radi; owner (tenantId yo'q) — hammasini
     const tenantId = admin.tenantId ?? null;
     const orderTenant = tenantId ? Prisma.sql`AND "tenantId" = ${tenantId}` : Prisma.empty;
-    const rows = await this.prisma.$queryRaw<
-      Array<{ day: Date; orders: number; revenue: number }>
-    >`
-      SELECT
-        DATE_TRUNC('day', "createdAt") AS day,
-        COUNT(*)::int AS orders,
-        COALESCE(SUM(total), 0)::float AS revenue
-      FROM "Order"
-      WHERE "createdAt" >= ${from}
-        AND "createdAt" < ${to}
-        AND status != 'CANCELLED'
-        ${orderTenant}
-      GROUP BY day
-      ORDER BY day ASC;
-    `;
-
-    // Tashriflar — endi UserEvent.tenantId bo'yicha per-do'kon hisoblanadi
     const evTenant = tenantId ? Prisma.sql`AND "tenantId" = ${tenantId}` : Prisma.empty;
-    const viewsRows = await this.prisma.$queryRaw<Array<{ day: Date; visitors: number }>>`
-      SELECT
-        DATE_TRUNC('day', "createdAt") AS day,
-        COUNT(DISTINCT "userId")::int AS visitors
-      FROM "UserEvent"
-      WHERE "createdAt" >= ${from}
-        AND "createdAt" < ${to}
-        AND type = 'VIEW_HOME'
-        ${evTenant}
-      GROUP BY day
-      ORDER BY day ASC;
-    `;
-    const viewsByDay = new Map(viewsRows.map((v) => [v.day.toISOString(), v.visitors]));
 
-    return rows.map((r) => ({
-      day: r.day,
-      orders: r.orders,
-      revenue: r.revenue,
-      visitors: viewsByDay.get(r.day.toISOString()) ?? 0,
-    }));
+    // DIQQAT: bu so'rov ilgari "Order" jadvaliga tayanardi — u ESKI marketplace
+    // modelidan qolgan va sxemada YO'Q. Natijada endpoint har chaqiruvda xato
+    // berardi va panelda grafik o'rniga bo'sh kulrang joy turib qolardi.
+    // Endi haqiqiy sotuv jadvallari: NumberOrder + DigitalOrder.
+    //
+    // Ikkala so'rov mustaqil — ketma-ket emas, PARALLEL bajariladi.
+    const [rows, viewsRows] = await Promise.all([
+      this.prisma.$queryRaw<Array<{ day: Date; orders: number; revenue: number }>>`
+        SELECT day, SUM(orders)::int AS orders, SUM(revenue)::float AS revenue
+        FROM (
+          SELECT
+            DATE_TRUNC('day', "createdAt") AS day,
+            COUNT(*)::int AS orders,
+            COALESCE(SUM("retailPrice"), 0)::float AS revenue
+          FROM "NumberOrder"
+          WHERE "createdAt" >= ${from}
+            AND "createdAt" < ${to}
+            AND status NOT IN ('CANCELLED', 'ERROR')
+            ${orderTenant}
+          GROUP BY day
+          UNION ALL
+          SELECT
+            DATE_TRUNC('day', "createdAt") AS day,
+            COUNT(*)::int AS orders,
+            COALESCE(SUM("retailPrice"), 0)::float AS revenue
+          FROM "DigitalOrder"
+          WHERE "createdAt" >= ${from}
+            AND "createdAt" < ${to}
+            AND status <> 'CANCELLED'
+            ${orderTenant}
+          GROUP BY day
+        ) s
+        GROUP BY day
+        ORDER BY day ASC;
+      `,
+      this.prisma.$queryRaw<Array<{ day: Date; visitors: number }>>`
+        SELECT
+          DATE_TRUNC('day', "createdAt") AS day,
+          COUNT(DISTINCT "userId")::int AS visitors
+        FROM "UserEvent"
+        WHERE "createdAt" >= ${from}
+          AND "createdAt" < ${to}
+          AND type = 'VIEW_HOME'
+          ${evTenant}
+        GROUP BY day
+        ORDER BY day ASC;
+      `,
+    ]);
+
+    // Sotuv bo'lmagan, lekin tashrif bo'lgan kunlar ham chiqsin — aks holda
+    // "Tashriflar" tabi bo'sh ko'rinardi.
+    const byDay = new Map<
+      string,
+      { day: Date; orders: number; revenue: number; visitors: number }
+    >();
+    for (const r of rows) {
+      byDay.set(r.day.toISOString(), {
+        day: r.day,
+        orders: r.orders,
+        revenue: r.revenue,
+        visitors: 0,
+      });
+    }
+    for (const v of viewsRows) {
+      const key = v.day.toISOString();
+      const cur = byDay.get(key);
+      if (cur) cur.visitors = v.visitors;
+      else byDay.set(key, { day: v.day, orders: 0, revenue: 0, visitors: v.visitors });
+    }
+    return [...byDay.values()].sort((a, b) => a.day.getTime() - b.day.getTime());
   }
 
   @Get('top-products')

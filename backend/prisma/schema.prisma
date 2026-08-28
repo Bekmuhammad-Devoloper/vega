@@ -188,6 +188,9 @@ model NumberOrder {
   @@index([tenantId, status])
   @@index([userId, status])
   @@index([createdAt])
+  // Panel statistikasi do'kon + sana oralig'i bo'yicha guruhlaydi —
+  // bu indekssiz butun jadval skanerlanardi.
+  @@index([tenantId, createdAt])
 }
 
 model NumberOrderEvent {
@@ -995,4 +998,6 @@ model DigitalOrder {
   @@index([tenantId, status])
   @@index([userId, status])
   @@index([status, createdAt])
+  // Panel statistikasi uchun (do'kon + sana oralig'i).
+  @@index([tenantId, createdAt])
 }

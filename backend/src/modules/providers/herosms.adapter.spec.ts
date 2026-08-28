@@ -62,3 +62,58 @@ describe('HeroSmsAdapter.availableMap — bir vaqtdagi chaqiruvlar', () => {
     expect(map.size).toBe(0);
   });
 });
+
+/**
+ * "Narxlar" sahifasi sekinligining sababi: har bir taklif kartochkasi
+ * `getPriceUsd` chaqirar, u esa HAR SAFAR provayderga alohida HTTP so'rov
+ * yuborardi (keshsiz). 20 ta kartochka = 20 ta tashqi so'rov.
+ */
+describe('HeroSmsAdapter.getPriceUsd — narx keshi', () => {
+  function makeAdapter(onApiCall: () => void) {
+    const config = { get: () => 'test-key' } as never;
+    const adapter = new HeroSmsAdapter(config);
+    (adapter as unknown as { api: () => Promise<string> }).api = async () => {
+      onApiCall();
+      await new Promise((r) => setTimeout(r, 20));
+      return JSON.stringify({
+        '40': { tg: { cost: 0.5, count: 7 }, wa: { cost: 1.2, count: 3 } },
+        '187': { tg: { cost: 0.9, count: 0 } }, // zaxira yo'q
+      });
+    };
+    return adapter;
+  }
+
+  it('20 ta parallel narx so\'rovi provayderga FAQAT 1 marta boradi', async () => {
+    let calls = 0;
+    const adapter = makeAdapter(() => calls++);
+
+    const results = await Promise.all(
+      Array.from({ length: 20 }, () =>
+        adapter.getPriceUsd({ countryHeroCode: '40', serviceHeroCode: 'tg' } as never),
+      ),
+    );
+
+    expect(calls).toBe(1);
+    expect(results.every((r) => r === 0.5)).toBe(true);
+  });
+
+  it('turli yo\'nalishlar bitta keshdan xizmat qilinadi', async () => {
+    let calls = 0;
+    const adapter = makeAdapter(() => calls++);
+
+    const [tg, wa] = await Promise.all([
+      adapter.getPriceUsd({ countryHeroCode: '40', serviceHeroCode: 'tg' } as never),
+      adapter.getPriceUsd({ countryHeroCode: '40', serviceHeroCode: 'wa' } as never),
+    ]);
+
+    expect(calls).toBe(1);
+    expect(tg).toBe(0.5);
+    expect(wa).toBe(1.2);
+  });
+
+  it('zaxirasi tugagan yo\'nalish narx bermaydi', async () => {
+    const adapter = makeAdapter(() => undefined);
+    const p = await adapter.getPriceUsd({ countryHeroCode: '187', serviceHeroCode: 'tg' } as never);
+    expect(p).toBeNull();
+  });
+});

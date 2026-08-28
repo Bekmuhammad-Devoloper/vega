@@ -17,6 +17,13 @@ export class SpiderAdapter implements ProviderAdapter {
   readonly kind = ProviderKind.SPIDER;
   private readonly logger = new Logger(SpiderAdapter.name);
   private countryCache: { at: number; set: Set<string> } | null = null;
+  /**
+   * ISO2 -> narx (USD). `getCountrys` javobi baribir narxni ham qaytaradi,
+   * shuning uchun bitta so'rov ikkala ehtiyojni qoplaydi: qo'llab-quvvatlanadigan
+   * davlatlar va tan narxi. "Narxlar" sahifasi har kartochka uchun alohida
+   * so'rov yubormasligi uchun MUHIM.
+   */
+  private priceCache: { at: number; map: Map<string, number> } | null = null;
   /** Ayni damda ketayotgan so'rov — bir vaqtdagi chaqiruvlarni birlashtiradi. */
   private countryInFlight: Promise<Set<string>> | null = null;
 
@@ -56,25 +63,29 @@ export class SpiderAdapter implements ProviderAdapter {
     }
   }
 
+  /**
+   * Davlat bo'yicha tan narxi.
+   *
+   * TEZLIK: ilgari HAR chaqiruvda `getCountrys` so'rovi ketardi — "Narxlar"
+   * sahifasida har kartochka bittadan so'rov qilib, sahifa sekin ochilardi.
+   * Endi narxlar `supportedIso2()` bilan bir xil 3 daqiqalik keshdan olinadi:
+   * N ta kartochka = 1 ta tashqi so'rov.
+   */
   async getPriceUsd(input: BuyInput): Promise<number | null> {
-    const iso = input.countryIso2;
+    const iso = (input.countryIso2 ?? '').toUpperCase();
     if (!iso) return null;
-    try {
-      const d = await this.api('getCountrys');
-      const groups = d?.result?.countries ?? {};
-      // countries — guruhlar obyekti; har guruh ichida { ISO2: narx }.
-      for (const grp of Object.values(groups)) {
-        const g = grp as Record<string, unknown>;
-        if (g && g[iso] != null) {
-          const n = Number(g[iso]);
-          return Number.isFinite(n) ? n : null;
-        }
-      }
-      return null;
-    } catch (e) {
-      this.logger.warn(`getPriceUsd(${iso}): ${String(e)}`);
-      return null;
-    }
+
+    const fresh =
+      this.priceCache && Date.now() - this.priceCache.at < 3 * 60 * 1000
+        ? this.priceCache
+        : null;
+    // `supportedIso2()` orqali — u so'rovlarni birlashtiradi. To'g'ridan-to'g'ri
+    // `loadCountries()` chaqirsak, bir vaqtdagi chaqiruvlar yana alohida
+    // so'rov yuborardi.
+    if (!fresh) await this.supportedIso2();
+
+    const n = this.priceCache?.map.get(iso);
+    return n != null && Number.isFinite(n) ? n : null;
   }
 
   /**
@@ -93,26 +104,39 @@ export class SpiderAdapter implements ProviderAdapter {
     // so'rov yuborib, javob sekinlashadi yoki butunlay xato beradi.
     if (this.countryInFlight) return this.countryInFlight;
 
-    this.countryInFlight = (async () => {
-      try {
-        const d = await this.api('getCountrys');
-        const groups = d?.result?.countries ?? {};
-        const set = new Set<string>();
-        for (const grp of Object.values(groups)) {
-          const g = grp as Record<string, unknown>;
-          for (const k of Object.keys(g ?? {})) set.add(k.toUpperCase());
-        }
-        if (set.size) this.countryCache = { at: Date.now(), set };
-        return set;
-      } catch (e) {
-        this.logger.warn(`supportedIso2: ${String(e)}`);
-        return this.countryCache?.set ?? new Set();
-      } finally {
-        this.countryInFlight = null;
-      }
-    })();
-
+    this.countryInFlight = this.loadCountries();
     return this.countryInFlight;
+  }
+
+  /**
+   * `getCountrys` ni BIR MARTA chaqirib, ikkala keshni ham to'ldiradi:
+   * qo'llab-quvvatlanadigan ISO2 to'plami va ISO2 -> narx jadvali.
+   */
+  private async loadCountries(): Promise<Set<string>> {
+    try {
+      const d = await this.api('getCountrys');
+      const groups = d?.result?.countries ?? {};
+      const set = new Set<string>();
+      const prices = new Map<string, number>();
+      for (const grp of Object.values(groups)) {
+        const g = grp as Record<string, unknown>;
+        for (const [k, v] of Object.entries(g ?? {})) {
+          const iso = k.toUpperCase();
+          set.add(iso);
+          const n = Number(v);
+          if (Number.isFinite(n)) prices.set(iso, n);
+        }
+      }
+      const at = Date.now();
+      if (set.size) this.countryCache = { at, set };
+      if (prices.size) this.priceCache = { at, map: prices };
+      return set;
+    } catch (e) {
+      this.logger.warn(`supportedIso2: ${String(e)}`);
+      return this.countryCache?.set ?? new Set();
+    } finally {
+      this.countryInFlight = null;
+    }
   }
 
   async buy(input: BuyInput): Promise<BuyResult> {

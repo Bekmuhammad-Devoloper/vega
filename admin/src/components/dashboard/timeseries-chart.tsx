@@ -24,7 +24,7 @@ const METRIC_LABEL: Record<Metric, string> = {
 
 export function TimeseriesChart() {
   const [metric, setMetric] = useState<Metric>('orders');
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['stats', 'timeseries'],
     queryFn: () => apiStatsTimeseries(),
   });
@@ -51,8 +51,29 @@ export function TimeseriesChart() {
         </div>
       </div>
       <div className="p-3 h-64">
-        {isLoading || !data ? (
+        {isLoading ? (
           <Skeleton className="h-full w-full" />
+        ) : isError || !data ? (
+          /* Xato bo'lganda `isLoading` false, `data` esa undefined — ilgari bu
+             yerda skeleton ABADIY turib qolardi va sabab ko'rinmasdi. */
+          <div className="h-full grid place-items-center text-center px-4">
+            <div>
+              <p className="text-sm font-medium">Grafik yuklanmadi</p>
+              <button
+                onClick={() => refetch()}
+                disabled={isFetching}
+                className="mt-2 text-sm font-semibold text-[var(--color-primary)] disabled:opacity-50"
+              >
+                {isFetching ? 'Yuklanmoqda…' : 'Qayta urinish'}
+              </button>
+            </div>
+          </div>
+        ) : data.length === 0 ? (
+          <div className="h-full grid place-items-center text-center px-4">
+            <p className="text-sm text-[var(--color-text-muted)]">
+              So&apos;nggi 30 kunda ma&apos;lumot yo&apos;q
+            </p>
+          </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data}>
