@@ -129,9 +129,12 @@ const DIGITAL = [
   { kind: DigitalKind.STARS, label: '250 Stars', amount: 250, wholesaleUsd: 3.9, position: 3 },
   { kind: DigitalKind.STARS, label: '500 Stars', amount: 500, wholesaleUsd: 7.6, position: 4 },
   { kind: DigitalKind.STARS, label: '1000 Stars', amount: 1000, wholesaleUsd: 15.0, position: 5 },
-  { kind: DigitalKind.PREMIUM, label: 'Premium 3 oy', amount: 3, wholesaleUsd: 12.0, position: 6 },
-  { kind: DigitalKind.PREMIUM, label: 'Premium 6 oy', amount: 6, wholesaleUsd: 18.0, position: 7 },
-  { kind: DigitalKind.PREMIUM, label: 'Premium 12 oy', amount: 12, wholesaleUsd: 30.0, position: 8 },
+  // Premium tannarxi iStar'da TON kursiga qarab O'ZGARADI. Quyidagilar —
+  // 2026-08 dagi jonli narx + 10% platforma ustamasi. Eskirmasligi uchun
+  // vaqti-vaqti bilan: `npm run digital:sync` (iStar'dan jonli oladi).
+  { kind: DigitalKind.PREMIUM, label: 'Premium 3 oy', amount: 3, wholesaleUsd: 13.85, position: 6 },
+  { kind: DigitalKind.PREMIUM, label: 'Premium 6 oy', amount: 6, wholesaleUsd: 18.47, position: 7 },
+  { kind: DigitalKind.PREMIUM, label: 'Premium 12 oy', amount: 12, wholesaleUsd: 33.48, position: 8 },
 ];
 
 async function main(): Promise<void> {

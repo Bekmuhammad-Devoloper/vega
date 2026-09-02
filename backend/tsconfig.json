@@ -24,6 +24,6 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true
   },
-  "include": ["src/**/*", "prisma/seed.ts"],
+  "include": ["src/**/*", "prisma/seed.ts", "prisma/sync-digital-prices.ts"],
   "exclude": ["node_modules", "dist", "test"]
 }

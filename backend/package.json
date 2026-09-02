@@ -17,7 +17,8 @@
     "prisma:studio": "prisma studio",
     "db:seed": "ts-node prisma/seed.ts",
     "db:seed:supermarket": "ts-node prisma/reseed-products.ts",
-    "db:seed:super": "ts-node prisma/seed-super.ts"
+    "db:seed:super": "ts-node prisma/seed-super.ts",
+    "digital:sync": "ts-node prisma/sync-digital-prices.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
