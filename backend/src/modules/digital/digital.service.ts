@@ -448,11 +448,17 @@ export class DigitalService {
 
   // ── RESELLER (admin) ───────────────────────────────────────────────
 
-  catalog() {
-    return this.prisma.digitalProduct.findMany({
+  async catalog() {
+    const rows = await this.prisma.digitalProduct.findMany({
       where: { isActive: true },
       orderBy: [{ kind: 'asc' }, { position: 'asc' }],
     });
+    // Reseller so'mda o'ylaydi. Kursni frontendga bermaymiz — shu yerda
+    // o'girib beramiz, aks holda har panel o'zicha kurs yozib qo'yardi.
+    return rows.map((p) => ({
+      ...p,
+      wholesaleUzs: this.uzs(Number(p.wholesaleUsd)),
+    }));
   }
 
   offers(tenantId: string) {

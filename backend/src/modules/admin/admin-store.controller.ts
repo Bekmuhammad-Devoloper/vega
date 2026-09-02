@@ -255,6 +255,10 @@ export class AdminStoreController {
             ? (t.forcedSubChannels as Array<{ username?: string; title?: string }>)
             : [],
         },
+        // Stars/Premium sotuvi yoqilganmi — "Stars / Premium" sahifasi
+        // tugmalarning boshlang'ich holatini shundan oladi.
+        starsEnabled: t.starsEnabled,
+        premiumEnabled: t.premiumEnabled,
         // Free sinov holati (10 kun) — UI banner + blok uchun.
         trial: await this.catalog.freeTrialByTenantId(t.id),
       },

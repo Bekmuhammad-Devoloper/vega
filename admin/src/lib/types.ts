@@ -109,8 +109,10 @@ export interface DigitalProduct {
   label: string;
   /** Stars soni yoki oylik muddat. */
   amount: number;
-  /** Platforma ulgurji narxi (USD). so'mga o'tkazish uchun USD_UZS ishlatiladi. */
+  /** Platforma ulgurji narxi (USD). */
   wholesaleUsd: number;
+  /** O'sha ulgurji narx so'mda — kursni backend qo'llaydi. */
+  wholesaleUzs: number;
   isActive: boolean;
   position: number;
 }
