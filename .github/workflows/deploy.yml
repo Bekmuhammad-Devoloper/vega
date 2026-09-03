@@ -60,7 +60,12 @@ jobs:
 
       - name: Serverda deploy
         env:
-          SKIP_FE: ${{ inputs.skip_frontend == false && '0' || '1' }}
+          # push -> frontendlar HAM quriladi. Ilgari bu yerda faqat
+          # `inputs.skip_frontend` qaralardi; push'da inputs bo'sh bo'lgani
+          # uchun frontend deyarli hech qachon qurilmasdi va panelga eski
+          # build chiqib turardi ("push qildim, lekin ko'rinmayapti").
+          # Qo'lda ishga tushirilganda esa tanlov o'zgarishsiz ishlaydi.
+          SKIP_FE: ${{ github.event_name == 'workflow_dispatch' && (inputs.skip_frontend && '1' || '0') || '0' }}
         run: |
           ssh -i ~/.ssh/id_deploy -p "${{ secrets.SSH_PORT || 22 }}" \
             "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
