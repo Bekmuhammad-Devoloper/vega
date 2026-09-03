@@ -81,9 +81,45 @@ if [ "$SKIP_FRONTEND" != "1" ]; then
     [ -d "$APP_DIR/$app" ] || continue
     log "Frontend: $app"
     cd "$APP_DIR/$app"
-    npm ci --no-audit --no-fund
-    npm run build
-    pm2 reload "vega-$app" --update-env || true
+
+    # Backend'dagi bilan bir xil mantiq: lockfile o'zgarmagan bo'lsa `npm ci`
+    # umuman ishlatilmaydi. Bu tezlik uchun emas — kichik serverda har
+    # deploy'da uch marta `npm ci` xotirani tugatib, OOM killer jarayonni
+    # o'ldirardi (exit 137) va deploy yarim yo'lda uzilardi.
+    FE_LOCK_FILE="/opt/vega/.lockhash-$app"
+    FE_NEW=$(sha256sum package-lock.json 2>/dev/null | cut -d' ' -f1)
+    FE_OLD=$(cat "$FE_LOCK_FILE" 2>/dev/null || echo "")
+    FE_INSTALL=0
+    [ -d node_modules ] || FE_INSTALL=1
+    # npm bu faylni o'rnatish MUVAFFAQIYATLI tugagandagina yozadi. Yarim
+    # uzilgan o'rnatishdan keyin (masalan OOM'da o'ldirilgan `npm ci`)
+    # node_modules bor, lekin yaroqsiz — shuni aynan shu bilan aniqlaymiz.
+    [ -f node_modules/.package-lock.json ] || FE_INSTALL=1
+    [ "$FE_NEW" != "$FE_OLD" ] && FE_INSTALL=1
+    # node_modules bor, lekin hash hali yozilmagan (bu himoya qo'shilgandan
+    # keyingi BIRINCHI deploy). Uni shu lockfile'dan o'rnatilgan deb
+    # hisoblaymiz — aks holda birinchi deploy yana keraksiz `npm ci` qilardi.
+    if [ "$FE_INSTALL" = "0" ] && [ -z "$FE_OLD" ]; then
+      FE_INSTALL=0
+      mkdir -p "$(dirname "$FE_LOCK_FILE")"
+      printf '%s' "$FE_NEW" > "$FE_LOCK_FILE"
+    fi
+
+    if [ "$FE_INSTALL" = "1" ]; then
+      # O'rnatish kerak bo'lsa — shu app'ning O'ZINI vaqtincha to'xtatib
+      # xotirani bo'shatamiz (boshqa ilovalarga tegmaymiz) va npm heap'ini
+      # cheklaymiz, shunda OOM killer aralashmaydi.
+      log "  bog'liqliklar o'zgargan — o'rnatilmoqda (shu app vaqtincha to'xtaydi)"
+      pm2 stop "vega-$app" >/dev/null 2>&1 || true
+      NODE_OPTIONS=--max-old-space-size=768 npm ci --no-audit --no-fund
+      mkdir -p "$(dirname "$FE_LOCK_FILE")"
+      printf '%s' "$FE_NEW" > "$FE_LOCK_FILE"
+    else
+      log "  bog'liqliklar o'zgarmagan — o'rnatish o'tkazib yuborildi"
+    fi
+
+    NODE_OPTIONS=--max-old-space-size=1024 npm run build
+    pm2 start "vega-$app" --update-env >/dev/null 2>&1 || pm2 reload "vega-$app" --update-env || true
   done
 fi
 

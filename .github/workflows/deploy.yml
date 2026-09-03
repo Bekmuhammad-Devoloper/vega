@@ -67,6 +67,12 @@ jobs:
           # Qo'lda ishga tushirilganda esa tanlov o'zgarishsiz ishlaydi.
           SKIP_FE: ${{ github.event_name == 'workflow_dispatch' && (inputs.skip_frontend && '1' || '0') || '0' }}
         run: |
+          # deploy.sh serverda ALOHIDA nusxa (/opt/vega/deploy.sh) bo'lib turadi.
+          # Uni avval repodagi versiya bilan yangilaymiz — aks holda skriptga
+          # kiritilgan tuzatish push qilinsa ham serverga hech qachon yetmaydi.
+          ssh -i ~/.ssh/id_deploy -p "${{ secrets.SSH_PORT || 22 }}" \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "cd /opt/vega/app && git fetch --depth=1 origin saas && git reset --hard origin/saas && cp deploy/deploy.sh /opt/vega/deploy.sh && chmod +x /opt/vega/deploy.sh"
           ssh -i ~/.ssh/id_deploy -p "${{ secrets.SSH_PORT || 22 }}" \
             "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
             "SKIP_FRONTEND=$SKIP_FE bash /opt/vega/deploy.sh saas"
