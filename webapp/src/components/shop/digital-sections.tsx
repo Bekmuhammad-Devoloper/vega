@@ -6,7 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Star, Crown, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { Sheet } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { apiBuyDigital, apiDigitalStorefront } from '@/lib/api/endpoints';
+import { apiBuyDigital, apiDigitalStorefront, apiGetMe } from '@/lib/api/endpoints';
 import { useLocaleStore } from '@/stores/locale-store';
 import { getMessages, tr, type Locale } from '@/i18n';
 import { formatMoney } from '@/lib/format';
@@ -123,14 +123,29 @@ function BuySheet({
 
   const [username, setUsername] = useState('');
   const [done, setDone] = useState(false);
+  // Foydalanuvchi maydonga tegdimi — tegan bo'lsa avto-to'ldirish ustiga yozmaydi.
+  const [touched, setTouched] = useState(false);
 
-  // Har yangi paket ochilganda inputni tozalaymiz
+  // Ko'p holatda mijoz O'ZIGA oladi, shuning uchun o'z username'ini
+  // qo'lda yozib o'tirmasin — oldindan qo'yib beramiz.
+  const { data: me } = useQuery({ queryKey: ['me'], queryFn: apiGetMe });
+
+  // Har yangi paket ochilganda formani tiklaymiz
   useEffect(() => {
     if (selection) {
-      setUsername('');
+      setUsername(me?.username ?? '');
+      setTouched(false);
       setDone(false);
     }
+    // `me` ataylab bog'liqlikda emas: u kechroq kelsa quyidagi effekt to'ldiradi,
+    // bu yerda esa har yangilanishda foydalanuvchi yozganini o'chirib yubormaymiz.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selection]);
+
+  // `me` so'rovi varaq ochilgandan keyin kelsa ham to'ldirilsin.
+  useEffect(() => {
+    if (selection && !touched && me?.username) setUsername(me.username);
+  }, [me?.username, selection, touched]);
 
   const clean = username.trim().replace(/^@+/, '');
   const valid = USERNAME_RE.test(clean);
@@ -183,7 +198,10 @@ function BuySheet({
               <span className="text-[var(--color-text-muted)] select-none">@</span>
               <input
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={(e) => {
+                  setTouched(true);
+                  setUsername(e.target.value);
+                }}
                 placeholder={tr(messages, 'digital.usernamePlaceholder')}
                 autoCapitalize="none"
                 autoCorrect="off"
