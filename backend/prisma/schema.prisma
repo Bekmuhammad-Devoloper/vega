@@ -30,23 +30,23 @@ enum Language {
 /// Bitta raqam-buyurtma holati (provayder oqimi)
 enum NumberOrderStatus {
   WAITING_CODE // raqam olindi, SMS kutilmoqda
-  RECEIVED     // kod keldi
-  CANCELLED    // bekor qilindi (pul qaytdi)
-  EXPIRED      // muddat tugadi, kod kelmadi
-  ERROR        // provayder xatosi
+  RECEIVED // kod keldi
+  CANCELLED // bekor qilindi (pul qaytdi)
+  EXPIRED // muddat tugadi, kod kelmadi
+  ERROR // provayder xatosi
 }
 
 /// Provayder turi
 enum ProviderKind {
-  SPIDER   // real SIM, Telegram (asosiy)
-  HEROSMS  // arzon, boshqa xizmatlar
+  SPIDER // real SIM, Telegram (asosiy)
+  HEROSMS // arzon, boshqa xizmatlar
   FRAGMENT // Stars / Premium
-  MOCK     // demo/test
+  MOCK // demo/test
 }
 
 /// Mijoz to'lov usuli (reseller do'konida)
 enum PaymentMethod {
-  BALANCE       // mijozning do'kondagi balansidan
+  BALANCE // mijozning do'kondagi balansidan
   PAYME
   CLICK
   CARD_TRANSFER // chek yuklaydi, reseller tasdiqlaydi
@@ -60,9 +60,9 @@ enum PaymentProvider {
 
 /// Reseller hamyoni (ulgurji balans) tranzaksiya turi
 enum WalletTxType {
-  TOPUP      // reseller balansini to'ldirdi
-  PURCHASE   // raqam uchun ulgurji yechim
-  REFUND     // bekor qilingan raqam uchun qaytarish
+  TOPUP // reseller balansini to'ldirdi
+  PURCHASE // raqam uchun ulgurji yechim
+  REFUND // bekor qilingan raqam uchun qaytarish
   ADJUSTMENT // superadmin qo'lda tuzatish
   ACTIVATION // bir martalik faollashtirish to'lovi
 }
@@ -143,12 +143,12 @@ model ResellerOffer {
 
 /// Mijoz raqam-buyurtmasi (Sellio Order+OrderItem o'rniga — bitta raqam).
 model NumberOrder {
-  id          String            @id @default(cuid())
-  orderNumber String            @unique
+  id          String @id @default(cuid())
+  orderNumber String @unique
   tenantId    String
-  tenant      Tenant            @relation(fields: [tenantId], references: [id])
+  tenant      Tenant @relation(fields: [tenantId], references: [id])
   userId      String
-  user        User              @relation(fields: [userId], references: [id])
+  user        User   @relation(fields: [userId], references: [id])
 
   serviceId String
   service   Service @relation(fields: [serviceId], references: [id])
@@ -287,6 +287,7 @@ model User {
   promoUsages   PromoCodeUsage[]
   tenantBlocks  TenantBlockedUser[]
   tenantLinks   TenantCustomer[]
+  cryptoOrders  CryptoOrder[]
 
   @@index([lastSeenAt])
 }
@@ -387,21 +388,22 @@ model Tenant {
   starsEnabled   Boolean @default(false)
   premiumEnabled Boolean @default(false)
   giftsEnabled   Boolean @default(false)
+  cryptoEnabled  Boolean @default(false)
 
   // BIR MARTALIK faollashtirish to'lovi
-  tariffPlan       TariffPlan @default(FREE) // feature darajasi (bir martalik sotib olinadi)
+  tariffPlan        TariffPlan  @default(FREE) // feature darajasi (bir martalik sotib olinadi)
   /// Chek yuborilgan, TASDIQLANISHI kutilayotgan tarif. Faqat admin
   /// tasdiqlagach `tariffPlan`ga ko'chiriladi va tozalanadi. Shu maydon
   /// borligi uchun tarif tanlash yoki bekor qilish jonli tarifga tegmaydi.
-  pendingPlan      TariffPlan?
+  pendingPlan       TariffPlan?
   /// Kanaldagi "Bugungacha N ta sotuv" ko'rsatkichiga qo'shiladigan qo'lda
   /// e'lonlar soni. HAQIQIY statistikadan (totalOrders) ALOHIDA turadi:
   /// dev paneldagi hisobotlar faqat totalOrders'ni ko'rsatadi, aks holda
   /// "nechta do'kon haqiqatan sotyapti" degan metrika yolg'on bo'lardi.
-  channelSalesBonus Int @default(0)
-  isActivated      Boolean    @default(false)
-  activationPaidAt DateTime?
-  activationAmount Decimal?   @db.Decimal(12, 2)
+  channelSalesBonus Int         @default(0)
+  isActivated       Boolean     @default(false)
+  activationPaidAt  DateTime?
+  activationAmount  Decimal?    @db.Decimal(12, 2)
 
   // Status
   status          TenantStatus @default(PENDING_PAYMENT)
@@ -424,18 +426,18 @@ model Tenant {
   manualPaymentChannelId String?
 
   // Referal tizimi
-  referralCode        String?  @unique
+  referralCode        String? @unique
   referredById        String?
-  referralBalance     Decimal  @default(0) @db.Decimal(12, 2)
-  referralEarnedTotal Decimal  @default(0) @db.Decimal(12, 2)
+  referralBalance     Decimal @default(0) @db.Decimal(12, 2)
+  referralEarnedTotal Decimal @default(0) @db.Decimal(12, 2)
 
   // Brendlash
   logoUrl            String?
   primaryColor       String?
   backgroundColor    String?
   backgroundImageUrl String?
-  customDomain       String?  @unique
-  isWhiteLabel       Boolean  @default(false)
+  customDomain       String? @unique
+  isWhiteLabel       Boolean @default(false)
 
   // Telegram bot (reseller o'z raqam-sotuvchi boti)
   botToken    String? @unique
@@ -469,6 +471,8 @@ model Tenant {
   channelPosts   ChannelPost[]
   blockedUsers   TenantBlockedUser[]
   customers      TenantCustomer[]
+  cryptoOffers   CryptoOffer[]
+  cryptoOrders   CryptoOrder[]
   promoCodes     PromoCode[]
 
   @@index([status, tariffPlan])
@@ -954,25 +958,25 @@ enum DigitalKind {
 }
 
 enum DigitalOrderStatus {
-  PENDING   // to'landi, platforma yetkazishini kutmoqda
+  PENDING // to'landi, platforma yetkazishini kutmoqda
   FULFILLED // @username'ga yetkazildi
   CANCELLED // bekor (pul reseller hamyoniga qaytdi)
 }
 
 /// Platforma katalogi: Stars paketlari va Premium rejalari (dev panel boshqaradi).
 model DigitalProduct {
-  id           String      @id @default(cuid())
-  kind         DigitalKind
-  label        String // "100 Stars", "Premium 3 oy"
-  amount       Int // Stars soni yoki Premium oylari
-  wholesaleUsd Decimal     @db.Decimal(10, 4) // resellerga ulgurji
+  id                String      @id @default(cuid())
+  kind              DigitalKind
+  label             String // "100 Stars", "Premium 3 oy"
+  amount            Int // Stars soni yoki Premium oylari
+  wholesaleUsd      Decimal     @db.Decimal(10, 4) // resellerga ulgurji
   // SMM provayder (avto-yetkazish): service id + miqdor (override). Bo'sh = qo'lda.
   providerServiceId String?
   providerQty       Int?
-  isActive     Boolean     @default(true)
-  position     Int         @default(0)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  isActive          Boolean     @default(true)
+  position          Int         @default(0)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
 
   offers DigitalOffer[]
   orders DigitalOrder[]
@@ -999,18 +1003,18 @@ model DigitalOffer {
 
 /// Mijoz Stars/Premium buyurtmasi — @username'ga qo'lda yetkaziladi.
 model DigitalOrder {
-  id               String             @id @default(cuid())
-  orderNumber      String             @unique
+  id               String         @id @default(cuid())
+  orderNumber      String         @unique
   tenantId         String
-  tenant           Tenant             @relation(fields: [tenantId], references: [id])
+  tenant           Tenant         @relation(fields: [tenantId], references: [id])
   userId           String
-  user             User               @relation(fields: [userId], references: [id])
+  user             User           @relation(fields: [userId], references: [id])
   digitalProductId String
-  digitalProduct   DigitalProduct     @relation(fields: [digitalProductId], references: [id])
+  digitalProduct   DigitalProduct @relation(fields: [digitalProductId], references: [id])
 
-  kind        DigitalKind
-  username    String // @username (yetkaziladigan)
-  status      DigitalOrderStatus @default(PENDING)
+  kind     DigitalKind
+  username String // @username (yetkaziladigan)
+  status   DigitalOrderStatus @default(PENDING)
 
   wholesalePrice Decimal @db.Decimal(12, 2) // reseller hamyonidan
   retailPrice    Decimal @db.Decimal(12, 2) // mijoz to'lagan
@@ -1032,5 +1036,88 @@ model DigitalOrder {
   @@index([userId, status])
   @@index([status, createdAt])
   // Panel statistikasi uchun (do'kon + sana oralig'i).
+  @@index([tenantId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────
+// KRIPTO (TON / USDT) — qo'lda yetkaziladi
+// ─────────────────────────────────────────────────────────────────
+
+enum CryptoAsset {
+  TON
+  USDT
+}
+
+enum CryptoOrderStatus {
+  PENDING // to'landi, sotuvchi yuborishini kutmoqda
+  FULFILLED // hamyonga yuborildi
+  CANCELLED // bekor (pul mijoz balansiga qaytdi)
+}
+
+/// Reseller'ning kripto taklifi: qaysi aktiv, 1 birlik narxi va chegaralar.
+///
+/// Stars/Premium'dan farqi: bu yerda TAYYOR PAKET yo'q — mijoz istagan
+/// miqdorni kiritadi (masalan 17.5 USDT), narx esa `pricePerUnit` ga
+/// ko'paytiriladi. Shuning uchun alohida model kerak bo'ldi.
+model CryptoOffer {
+  id       String      @id @default(cuid())
+  tenantId String
+  tenant   Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  asset    CryptoAsset
+
+  /// 1 TON / 1 USDT uchun mijoz to'laydigan narx (so'm).
+  pricePerUnit Decimal @db.Decimal(14, 2)
+  /// Bitta buyurtmadagi eng kam va eng ko'p miqdor (aktiv birligida).
+  minAmount    Decimal @db.Decimal(18, 8)
+  maxAmount    Decimal @db.Decimal(18, 8)
+  /// Qaysi tarmoqlarga yuboriladi — mijoz shulardan tanlaydi.
+  /// Masalan USDT uchun ["TRC20", "BEP20"], TON uchun ["TON"].
+  networks     Json    @default("[]")
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, asset])
+  @@index([tenantId, isActive])
+}
+
+/// Mijozning kripto buyurtmasi — hamyon manziliga QO'LDA yuboriladi.
+model CryptoOrder {
+  id          String @id @default(cuid())
+  orderNumber String @unique
+  tenantId    String
+  tenant      Tenant @relation(fields: [tenantId], references: [id])
+  userId      String
+  user        User   @relation(fields: [userId], references: [id])
+
+  asset   CryptoAsset
+  /// Mijoz so'ragan miqdor (kasrli bo'lishi mumkin).
+  amount  Decimal     @db.Decimal(18, 8)
+  /// Yuborish tarmog'i — noto'g'ri tarmoq = pul yo'qoladi, shuning uchun
+  /// buyurtma bilan birga saqlanadi va sotuvchiga ko'rsatiladi.
+  network String
+  address String
+  /// Ba'zi birjalar TON uchun memo/tag talab qiladi.
+  memo    String?
+
+  status CryptoOrderStatus @default(PENDING)
+
+  /// Buyurtma paytidagi narx — keyin kurs o'zgarsa ham yozuv o'zgarmaydi.
+  pricePerUnit Decimal @db.Decimal(14, 2)
+  totalPrice   Decimal @db.Decimal(14, 2)
+
+  paidAt      DateTime?
+  fulfilledAt DateTime?
+  fulfilledBy String?
+  /// Tranzaksiya hash'i — mijozga isbot sifatida ko'rsatiladi.
+  txHash      String?
+  note        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, status])
+  @@index([userId, status])
   @@index([tenantId, createdAt])
 }

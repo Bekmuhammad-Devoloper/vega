@@ -8,6 +8,10 @@ import type {
   BannerView,
   CountryDto,
   CursorPage,
+  CryptoAsset,
+  CryptoOffer,
+  CryptoOrder,
+  CryptoSettings,
   DigitalOffer,
   DigitalOrder,
   DigitalProduct,
@@ -242,6 +246,7 @@ export interface MyStore {
     /** Digital sotuv holati (backend qaytarsa — Stars/Premium sahifasi shundan boshlang'ich holatni oladi). */
     starsEnabled?: boolean;
     premiumEnabled?: boolean;
+    cryptoEnabled?: boolean;
   };
   limits?: TariffLimits;
   usage?: { products: number; categories: number; banners: number };
@@ -473,6 +478,30 @@ export const apiUpdateDigitalSettings = (body: { starsEnabled?: boolean; premium
   api<DigitalSettings>('/admin/digital/settings', { method: 'PATCH', body });
 /** Digital buyurtmalar (mijozlar sotib olgan Stars/Premium). */
 export const apiDigitalOrders = () => api<DigitalOrder[]>('/admin/digital/orders');
+
+// ───── Kripto (TON / USDT) ─────
+/** Qaysi aktiv qaysi tarmoqlarda yuborilishi mumkin. */
+export const apiCryptoNetworks = () =>
+  api<Record<CryptoAsset, string[]>>('/admin/crypto/networks');
+export const apiCryptoOffers = () => api<CryptoOffer[]>('/admin/crypto/offers');
+export const apiUpsertCryptoOffer = (body: {
+  asset: CryptoAsset;
+  pricePerUnit: number;
+  minAmount: number;
+  maxAmount: number;
+  networks: string[];
+}) => api<CryptoOffer>('/admin/crypto/offers', { method: 'POST', body });
+export const apiDeleteCryptoOffer = (id: string) =>
+  api<{ ok: boolean }>(`/admin/crypto/offers/${id}`, { method: 'DELETE' });
+export const apiUpdateCryptoSettings = (body: { cryptoEnabled?: boolean }) =>
+  api<CryptoSettings>('/admin/crypto/settings', { method: 'PATCH', body });
+export const apiCryptoOrders = () => api<CryptoOrder[]>('/admin/crypto/orders');
+/** Yuborildi — tx hash mijozga isbot sifatida ko'rinadi. */
+export const apiFulfillCryptoOrder = (id: string, body: { txHash?: string; note?: string }) =>
+  api<CryptoOrder>(`/admin/crypto/orders/${id}/fulfill`, { method: 'POST', body });
+/** Bekor qilish — mijozga puli to'liq qaytadi. */
+export const apiCancelCryptoOrder = (id: string, body: { note?: string }) =>
+  api<CryptoOrder>(`/admin/crypto/orders/${id}/cancel`, { method: 'POST', body });
 
 // ───── Raqam buyurtmalari (mijozlar sotib olgan) ─────
 export type NumbersQuery = {

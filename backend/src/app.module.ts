@@ -17,6 +17,7 @@ import { CatalogModule } from './modules/catalog/catalog.module';
 import { ProvidersModule } from './modules/providers/providers.module';
 import { NumbersModule } from './modules/numbers/numbers.module';
 import { DigitalModule } from './modules/digital/digital.module';
+import { CryptoModule } from './modules/crypto/crypto.module';
 import { WalletModule } from './modules/wallet/wallet.module';
 import { PromoCodesModule } from './modules/promo-codes/promo-codes.module';
 import { SupportModule } from './modules/support/support.module';
@@ -77,6 +78,7 @@ import { AdminReferralModule } from './modules/referral/admin-referral.module';
     ProvidersModule,
     NumbersModule,
     DigitalModule,
+    CryptoModule,
     WalletModule,
     PromoCodesModule,
     SupportModule,

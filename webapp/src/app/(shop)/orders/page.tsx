@@ -7,6 +7,7 @@ import { Smartphone, Star, Crown, Sparkles } from 'lucide-react';
 import { PageHeader } from '@/components/shop/page-header';
 import { OrderStatusBadge } from '@/components/shop/order-status-badge';
 import { DigitalStatusBadge } from '@/components/shop/digital-status-badge';
+import { apiListCryptoOrders } from '@/lib/api/endpoints';
 import { CountryFlag } from '@/components/country-flag';
 import { ServiceIcon } from '@/components/service-icon';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -20,7 +21,7 @@ import { formatMoney, formatDateTime } from '@/lib/format';
 import type { NumberOrderStatus } from '@/lib/api/types';
 import { cn } from '@/lib/cn';
 
-type Section = 'numbers' | 'digital';
+type Section = 'numbers' | 'digital' | 'crypto';
 
 type TabKey = 'active' | 'done' | 'other';
 const TAB_STATUSES: Record<TabKey, NumberOrderStatus[]> = {
@@ -54,9 +55,21 @@ export default function OrdersPage() {
           icon={<Sparkles size={15} />}
           label={tr(messages, 'digital.sectionDigital')}
         />
+        <SectionTab
+          active={section === 'crypto'}
+          onClick={() => setSection('crypto')}
+          icon={<Sparkles size={15} />}
+          label="Kripto"
+        />
       </div>
 
-      {section === 'numbers' ? <NumberOrders /> : <DigitalOrders />}
+      {section === 'numbers' ? (
+        <NumberOrders />
+      ) : section === 'digital' ? (
+        <DigitalOrders />
+      ) : (
+        <CryptoOrders />
+      )}
     </div>
   );
 }
@@ -207,6 +220,63 @@ function DigitalOrders() {
               </span>
               <span className="text-sm font-bold text-[var(--color-primary)]">
                 {formatMoney(o.retailPrice, locale)}
+              </span>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+/** Kripto buyurtmalari — qo'lda yetkaziladi, shuning uchun holat muhim. */
+function CryptoOrders() {
+  const locale = useLocaleStore((s) => s.locale);
+  const messages = getMessages(locale);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['crypto-orders'],
+    queryFn: apiListCryptoOrders,
+    refetchInterval: 8000,
+  });
+
+  const items = data ?? [];
+
+  return (
+    <div className="px-4 space-y-3 pb-6 pt-3">
+      {isLoading ? (
+        Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24" />)
+      ) : items.length === 0 ? (
+        <EmptyState icon={<Sparkles size={48} />} title={tr(messages, 'digital.empty')} />
+      ) : (
+        items.map((o) => (
+          <div
+            key={o.id}
+            className="block rounded-2xl border border-[var(--color-border)] bg-white p-3.5"
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <span className="truncate text-sm font-semibold">
+                {Number(o.amount)} {o.asset}
+                <span className="ml-1.5 font-normal text-[var(--color-text-muted)]">
+                  {o.network}
+                </span>
+              </span>
+              <DigitalStatusBadge status={o.status} locale={locale} />
+            </div>
+            <p className="break-all font-mono text-[11px] leading-snug text-[var(--color-text-muted)]">
+              {o.address}
+            </p>
+            {o.txHash && (
+              <p className="mt-1 break-all font-mono text-[11px] leading-snug text-[var(--color-success)]">
+                tx: {o.txHash}
+              </p>
+            )}
+            <div className="mt-1.5 flex items-center justify-between">
+              <span className="text-xs text-[var(--color-text-muted)]">
+                {formatDateTime(o.createdAt, locale)}
+              </span>
+              <span className="text-sm font-bold text-[var(--color-primary)]">
+                {formatMoney(o.totalPrice, locale)}
               </span>
             </div>
           </div>

@@ -114,6 +114,39 @@ export interface DigitalOrder {
   createdAt: string;
 }
 
+// ───── Kripto (TON / USDT) ─────
+
+export type CryptoAsset = 'TON' | 'USDT';
+export type CryptoOrderStatus = 'PENDING' | 'FULFILLED' | 'CANCELLED';
+
+/** Sotuvchining taklifi — tayyor paket emas, 1 birlik narxi va chegaralar. */
+export interface CryptoOfferDto {
+  asset: CryptoAsset;
+  pricePerUnit: number;
+  minAmount: number;
+  maxAmount: number;
+  networks: string[];
+}
+
+export interface CryptoStorefront {
+  cryptoEnabled: boolean;
+  offers: CryptoOfferDto[];
+}
+
+export interface CryptoOrder {
+  id: string;
+  orderNumber: string;
+  asset: CryptoAsset;
+  amount: Money;
+  network: string;
+  address: string;
+  memo: string | null;
+  status: CryptoOrderStatus;
+  totalPrice: Money;
+  txHash: string | null;
+  createdAt: string;
+}
+
 // ───── Sozlamalar (do'kon brendi, aloqa) ─────
 
 export interface PublicSettings {

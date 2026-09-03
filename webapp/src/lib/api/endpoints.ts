@@ -1,6 +1,9 @@
 import { api, apiPostForm } from '../api';
 import type {
   CountryDto,
+  CryptoAsset,
+  CryptoOrder,
+  CryptoStorefront,
   DigitalOrder,
   DigitalStorefront,
   MeDto,
@@ -46,6 +49,17 @@ export const apiListDigitalOrders = () => api<DigitalOrder[]>('/digital/orders')
 export const apiGetDigitalOrder = (id: string) => api<DigitalOrder>(`/digital/orders/${id}`);
 export const apiBuyDigital = (body: { digitalProductId: string; username: string }) =>
   api<DigitalOrder>('/digital/orders', { method: 'POST', body });
+
+// ───── Kripto (TON / USDT) — qo'lda yetkaziladi ─────
+export const apiCryptoStorefront = () => api<CryptoStorefront>('/crypto/storefront');
+export const apiListCryptoOrders = () => api<CryptoOrder[]>('/crypto/orders');
+export const apiBuyCrypto = (body: {
+  asset: CryptoAsset;
+  amount: number;
+  network: string;
+  address: string;
+  memo?: string;
+}) => api<CryptoOrder>('/crypto/orders', { method: 'POST', body });
 
 // ───── Support ─────
 export const apiCreateTicket = (body: { subject: string; message: string }) =>

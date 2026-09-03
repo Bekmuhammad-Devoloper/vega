@@ -259,6 +259,7 @@ export class AdminStoreController {
         // tugmalarning boshlang'ich holatini shundan oladi.
         starsEnabled: t.starsEnabled,
         premiumEnabled: t.premiumEnabled,
+        cryptoEnabled: t.cryptoEnabled,
         // Free sinov holati (10 kun) — UI banner + blok uchun.
         trial: await this.catalog.freeTrialByTenantId(t.id),
       },

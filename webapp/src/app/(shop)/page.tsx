@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, Search, Loader2, Zap, ShieldCheck, Clock } from 'lucide-react';
 import { AppHeader } from '@/components/shop/app-header';
 import { DigitalSections } from '@/components/shop/digital-sections';
+import { CryptoSection } from '@/components/shop/crypto-section';
 import { CountryFlag } from '@/components/country-flag';
 import { ServiceIcon } from '@/components/service-icon';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -236,6 +237,9 @@ export default function HomePage() {
 
           {/* ── Telegram Stars / Premium ── */}
           <DigitalSections />
+
+          {/* ── Kripto (TON / USDT) ── */}
+          <CryptoSection />
 
           {/* ── Qanday ishlaydi ── */}
           <div className="px-4 pt-3 pb-6">

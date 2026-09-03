@@ -157,6 +157,47 @@ export interface DigitalSettings {
   premiumEnabled: boolean;
 }
 
+// ───── Kripto (TON / USDT) ─────
+
+export type CryptoAsset = 'TON' | 'USDT';
+export type CryptoOrderStatus = 'PENDING' | 'FULFILLED' | 'CANCELLED';
+
+/** Sotuvchining kripto taklifi — tayyor paket emas, 1 birlik narxi. */
+export interface CryptoOffer {
+  id: string;
+  asset: CryptoAsset;
+  pricePerUnit: Money;
+  minAmount: Money;
+  maxAmount: Money;
+  networks: string[];
+  isActive: boolean;
+}
+
+export interface CryptoOrder {
+  id: string;
+  orderNumber: string;
+  asset: CryptoAsset;
+  amount: Money;
+  network: string;
+  address: string;
+  memo: string | null;
+  status: CryptoOrderStatus;
+  pricePerUnit: Money;
+  totalPrice: Money;
+  txHash: string | null;
+  note: string | null;
+  user?: {
+    username?: string | null;
+    firstName?: string | null;
+    telegramId?: string | null;
+  } | null;
+  createdAt: string;
+}
+
+export interface CryptoSettings {
+  cryptoEnabled: boolean;
+}
+
 // ───── Ulgurji hamyon ─────
 
 export type WalletTxnType = string;
