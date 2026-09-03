@@ -41,7 +41,10 @@
     "toOrders": "Buyurtmalarga o'tish",
     "sectionNumbers": "Raqamlar",
     "sectionDigital": "Stars / Premium",
+    "sectionDigitalShort": "Stars",
+    "sectionCrypto": "Kripto",
     "empty": "Digital buyurtmalar yo'q",
+    "emptyCrypto": "Kripto buyurtmalar yo'q",
     "status": {
       "PENDING": "Yetkazilmoqda",
       "FULFILLED": "Yetkazildi",

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Smartphone, Star, Crown, Sparkles } from 'lucide-react';
+import { Smartphone, Star, Crown, Sparkles, Coins } from 'lucide-react';
 import { PageHeader } from '@/components/shop/page-header';
 import { OrderStatusBadge } from '@/components/shop/order-status-badge';
 import { DigitalStatusBadge } from '@/components/shop/digital-status-badge';
@@ -41,26 +41,31 @@ export default function OrdersPage() {
     <div>
       <PageHeader title={tr(messages, 'order.title')} backHref="/" />
 
-      {/* ── Bo'lim tanlash: Raqamlar / Stars-Premium ── */}
-      <div className="flex gap-2 px-4 pt-3">
-        <SectionTab
-          active={section === 'numbers'}
-          onClick={() => setSection('numbers')}
-          icon={<Smartphone size={15} />}
-          label={tr(messages, 'digital.sectionNumbers')}
-        />
-        <SectionTab
-          active={section === 'digital'}
-          onClick={() => setSection('digital')}
-          icon={<Sparkles size={15} />}
-          label={tr(messages, 'digital.sectionDigital')}
-        />
-        <SectionTab
-          active={section === 'crypto'}
-          onClick={() => setSection('crypto')}
-          icon={<Sparkles size={15} />}
-          label="Kripto"
-        />
+      {/* ── Bo'lim tanlash: bitta segmented control ──
+          Uchta tab alohida tugma bo'lganda uzun yorliq ("Stars / Premium")
+          ikki qatorga tushib, uchinchisi ekrandan chiqib ketardi. Endi
+          yorliqlar qisqa, segmentlar teng va matn hech qachon sinmaydi. */}
+      <div className="px-4 pt-3">
+        <div className="flex gap-1 rounded-2xl border border-[var(--color-border)] bg-white p-1">
+          <SectionTab
+            active={section === 'numbers'}
+            onClick={() => setSection('numbers')}
+            icon={<Smartphone size={14} />}
+            label={tr(messages, 'digital.sectionNumbers')}
+          />
+          <SectionTab
+            active={section === 'digital'}
+            onClick={() => setSection('digital')}
+            icon={<Sparkles size={14} />}
+            label={tr(messages, 'digital.sectionDigitalShort')}
+          />
+          <SectionTab
+            active={section === 'crypto'}
+            onClick={() => setSection('crypto')}
+            icon={<Coins size={14} />}
+            label={tr(messages, 'digital.sectionCrypto')}
+          />
+        </div>
       </div>
 
       {section === 'numbers' ? (
@@ -89,14 +94,16 @@ function SectionTab({
     <button
       onClick={onClick}
       className={cn(
-        'flex-1 h-10 rounded-2xl text-sm font-semibold inline-flex items-center justify-center gap-1.5',
+        // min-w-0 + truncate: uzun yorliq segmentni kengaytirib yubormasin
+        'flex-1 min-w-0 h-9 rounded-xl text-[13px] font-semibold',
+        'inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors',
         active
           ? 'bg-[var(--color-primary)] text-white'
-          : 'bg-white text-[var(--color-text-muted)] border border-[var(--color-border)]',
+          : 'text-[var(--color-text-muted)] active:bg-[var(--color-bg)]',
       )}
     >
-      {icon}
-      {label}
+      <span className="shrink-0">{icon}</span>
+      <span className="truncate">{label}</span>
     </button>
   );
 }
@@ -247,7 +254,7 @@ function CryptoOrders() {
       {isLoading ? (
         Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24" />)
       ) : items.length === 0 ? (
-        <EmptyState icon={<Sparkles size={48} />} title={tr(messages, 'digital.empty')} />
+        <EmptyState icon={<Coins size={48} />} title={tr(messages, 'digital.emptyCrypto')} />
       ) : (
         items.map((o) => (
           <div

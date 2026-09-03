@@ -41,7 +41,10 @@
     "toOrders": "Перейти к заказам",
     "sectionNumbers": "Номера",
     "sectionDigital": "Stars / Premium",
+    "sectionDigitalShort": "Stars",
+    "sectionCrypto": "Крипто",
     "empty": "Нет цифровых заказов",
+    "emptyCrypto": "Нет крипто-заказов",
     "status": {
       "PENDING": "Выполняется",
       "FULFILLED": "Выполнен",
