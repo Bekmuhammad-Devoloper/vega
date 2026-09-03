@@ -111,14 +111,25 @@ if [ "$SKIP_FRONTEND" != "1" ]; then
       # cheklaymiz, shunda OOM killer aralashmaydi.
       log "  bog'liqliklar o'zgargan — o'rnatilmoqda (shu app vaqtincha to'xtaydi)"
       pm2 stop "vega-$app" >/dev/null 2>&1 || true
-      NODE_OPTIONS=--max-old-space-size=768 npm ci --no-audit --no-fund
+      # Yiqilsa app TO'XTAGAN holicha qolmasligi kerak — aks holda bitta
+      # muvaffaqiyatsiz deploy butun panelni o'chirib qo'yadi. Avval qaytarib
+      # ko'taramiz, keyin deploy'ni xato bilan tugatamiz.
+      if ! NODE_OPTIONS=--max-old-space-size=768 npm ci --no-audit --no-fund; then
+        pm2 start "vega-$app" --update-env >/dev/null 2>&1 || true
+        log "  XATO: $app bog'liqliklari o'rnatilmadi (xotira yetmagan bo'lishi mumkin)"
+        exit 1
+      fi
       mkdir -p "$(dirname "$FE_LOCK_FILE")"
       printf '%s' "$FE_NEW" > "$FE_LOCK_FILE"
     else
       log "  bog'liqliklar o'zgarmagan — o'rnatish o'tkazib yuborildi"
     fi
 
-    NODE_OPTIONS=--max-old-space-size=1024 npm run build
+    if ! NODE_OPTIONS=--max-old-space-size=1024 npm run build; then
+      pm2 start "vega-$app" --update-env >/dev/null 2>&1 || true
+      log "  XATO: $app build qilinmadi"
+      exit 1
+    fi
     pm2 start "vega-$app" --update-env >/dev/null 2>&1 || pm2 reload "vega-$app" --update-env || true
   done
 fi
