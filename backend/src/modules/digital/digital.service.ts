@@ -49,6 +49,92 @@ export class DigitalService {
     return Math.round((usd * this.rate) / 100) * 100;
   }
 
+  // ── Qabul qiluvchini KO'RSATISH (avatar + ism) ──────────────────
+  //
+  // Nega kerak: mijoz Stars'ni @username'ga oladi va bitta harf xato
+  // yozilsa sovg'a BEGONA odamga ketadi — qaytarib bo'lmaydi. Shuning
+  // uchun xariddan oldin akkaunt rasmi va ismi ko'rsatiladi.
+  //
+  // Manba — Telegram'ning ochiq `t.me/<username>` sahifasi (og-teglar).
+  // Bot API'da username'ni yechish metodi yo'q, iStar esa faqat hash
+  // qaytaradi va sekundiga 1 so'rov bilan cheklangan.
+  private readonly recipientCache = new Map<
+    string,
+    { at: number; data: { found: boolean; name: string | null; photoUrl: string | null } }
+  >();
+  private static readonly RECIPIENT_TTL_MS = 10 * 60 * 1000;
+  private static readonly RECIPIENT_CACHE_MAX = 500;
+
+  async previewRecipient(username: string) {
+    const uname = username.trim().replace(/^@/, '');
+    if (!/^[a-zA-Z0-9_]{4,32}$/.test(uname)) {
+      throw new BadRequestException("Username noto'g'ri");
+    }
+    const key = uname.toLowerCase();
+    const hit = this.recipientCache.get(key);
+    if (hit && Date.now() - hit.at < DigitalService.RECIPIENT_TTL_MS) {
+      return hit.data;
+    }
+
+    let data = { found: false, name: null as string | null, photoUrl: null as string | null };
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 6000);
+      let html: string;
+      try {
+        const res = await fetch(`https://t.me/${encodeURIComponent(uname)}`, {
+          headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'text/html' },
+          signal: ctrl.signal,
+        });
+        html = res.ok ? await res.text() : '';
+      } finally {
+        clearTimeout(timer);
+      }
+
+      const meta = (prop: string): string | null => {
+        const re = new RegExp(
+          `<meta[^>]+property=["']${prop}["'][^>]+content=["']([^"']*)["']`,
+          'i',
+        );
+        return re.exec(html)?.[1] ?? null;
+      };
+      const image = meta('og:image');
+      const title = meta('og:title');
+      // Mavjud bo'lmagan username'da t.me sarlavha sifatida "Telegram: Contact
+      // @username" beradi — shu bilan farqlaymiz.
+      const isPlaceholder = !title || /^telegram:?\s*contact/i.test(title);
+      // Profil rasmi YOPIQ bo'lsa t.me umumiy Telegram logosini qaytaradi.
+      // Uni avatar deb ko'rsatsak mijoz "rasm shu ekan" deb adashadi —
+      // shuning uchun bunda rasm YO'Q deb hisoblaymiz (UI harf ko'rsatadi).
+      const isRealPhoto = !!image && /cdn\d*\.telesco\.pe\/file\//i.test(image);
+      data = {
+        found: !isPlaceholder,
+        name: isPlaceholder ? null : this.decodeHtml(title),
+        photoUrl: isRealPhoto ? image : null,
+      };
+    } catch (e) {
+      // Tarmoq xatosi "akkaunt yo'q" degani EMAS — shunchaki ko'rsatmaymiz.
+      this.logger.warn(`previewRecipient @${uname}: ${(e as Error).message}`);
+      return { found: false, name: null, photoUrl: null };
+    }
+
+    if (this.recipientCache.size >= DigitalService.RECIPIENT_CACHE_MAX) {
+      this.recipientCache.clear();
+    }
+    this.recipientCache.set(key, { at: Date.now(), data });
+    return data;
+  }
+
+  private decodeHtml(s: string): string {
+    return s
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#039;/g, "'")
+      .trim();
+  }
+
   // ── MIJOZ ──────────────────────────────────────────────────────────
 
   async storefront(tenantId: string) {

@@ -3,10 +3,15 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Star, Crown, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Star, Crown, ChevronRight, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Sheet } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { apiBuyDigital, apiDigitalStorefront, apiGetMe } from '@/lib/api/endpoints';
+import {
+  apiBuyDigital,
+  apiDigitalStorefront,
+  apiGetMe,
+  apiRecipientPreview,
+} from '@/lib/api/endpoints';
 import { useLocaleStore } from '@/stores/locale-store';
 import { getMessages, tr, type Locale } from '@/i18n';
 import { formatMoney } from '@/lib/format';
@@ -222,6 +227,10 @@ function BuySheet({
                 ? tr(messages, 'digital.usernameInvalid')
                 : tr(messages, 'digital.usernameHint')}
             </p>
+
+            {/* Kim olishini KO'RSATAMIZ — bitta harf xato bo'lsa Stars
+                begona odamga ketadi va qaytarib bo'lmaydi. */}
+            {valid && <RecipientCard username={clean} locale={locale} />}
           </div>
 
           {/* Narx */}
@@ -245,5 +254,79 @@ function BuySheet({
         </div>
       ) : null}
     </Sheet>
+  );
+}
+
+/**
+ * Qabul qiluvchi akkaunt: avatar + ism. O'z akkaunti bo'lsa Telegram'dan
+ * kelgan ma'lumot ishlatiladi (darhol, so'rovsiz); boshqasi uchun server
+ * `t.me` sahifasidan oladi.
+ *
+ * Profil rasmi yopiq bo'lsa rasm o'rniga ism harfi ko'rsatiladi — umumiy
+ * Telegram logosini avatar deb ko'rsatish mijozni chalg'itardi.
+ */
+function RecipientCard({ username, locale }: { username: string; locale: Locale }) {
+  const ru = locale === 'ru';
+  const { data: me } = useQuery({ queryKey: ['me'], queryFn: apiGetMe });
+  const isSelf = !!me?.username && me.username.toLowerCase() === username.toLowerCase();
+
+  const { data, isFetching } = useQuery({
+    queryKey: ['recipient', username.toLowerCase()],
+    queryFn: () => apiRecipientPreview(username),
+    enabled: !isSelf,
+    staleTime: 10 * 60 * 1000,
+    retry: false,
+  });
+
+  const name = isSelf ? (me?.firstName ?? me?.username ?? null) : (data?.name ?? null);
+  const photo = isSelf ? (me?.photoUrl ?? null) : (data?.photoUrl ?? null);
+  const found = isSelf ? true : data?.found;
+
+  if (!isSelf && isFetching && !data) {
+    return (
+      <div className="mt-2.5 flex items-center gap-3 rounded-2xl bg-[var(--color-bg)] px-3 py-2.5">
+        <div className="h-9 w-9 animate-pulse rounded-full bg-[var(--color-border)]" />
+        <div className="h-3 w-24 animate-pulse rounded bg-[var(--color-border)]" />
+      </div>
+    );
+  }
+
+  if (found === false) {
+    return (
+      <div className="mt-2.5 flex items-center gap-2 rounded-2xl border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/8 px-3 py-2.5">
+        <AlertCircle size={16} className="shrink-0 text-[var(--color-danger)]" />
+        <span className="text-xs text-[var(--color-danger)]">
+          {ru ? 'Аккаунт не найден' : 'Bunday akkaunt topilmadi'}
+        </span>
+      </div>
+    );
+  }
+
+  if (!found) return null;
+
+  return (
+    <div className="mt-2.5 flex items-center gap-3 rounded-2xl bg-[var(--color-bg)] px-3 py-2.5">
+      {photo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={photo}
+          alt=""
+          className="h-9 w-9 shrink-0 rounded-full object-cover"
+          referrerPolicy="no-referrer"
+        />
+      ) : (
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--color-primary)] text-sm font-bold text-white">
+          {(name ?? username).charAt(0).toUpperCase()}
+        </span>
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold">{name ?? '@' + username}</p>
+        <p className="truncate text-xs text-[var(--color-text-muted)]">
+          @{username}
+          {isSelf && <span className="ml-1">· {ru ? 'это вы' : "bu sizsiz"}</span>}
+        </p>
+      </div>
+      <CheckCircle2 size={17} className="shrink-0 text-[var(--color-success)]" />
+    </div>
   );
 }

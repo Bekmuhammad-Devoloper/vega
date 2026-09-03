@@ -101,6 +101,14 @@ export interface DigitalStorefront {
   premium: DigitalProduct[];
 }
 
+/** Xariddan oldingi tekshiruv: @username kimga tegishli. */
+export interface RecipientPreview {
+  found: boolean;
+  name: string | null;
+  /** Profil rasmi yopiq bo'lsa null — UI harf bilan ko'rsatadi. */
+  photoUrl: string | null;
+}
+
 export type DigitalOrderStatus = 'PENDING' | 'FULFILLED' | 'CANCELLED';
 
 export interface DigitalOrder {

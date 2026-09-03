@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { IsString, MaxLength, MinLength } from 'class-validator';
@@ -29,6 +30,17 @@ export class DigitalController {
   storefront(@CurrentTenantId() tenantId: string | null) {
     if (!tenantId) throw new BadRequestException("Do'kon aniqlanmadi");
     return this.digital.storefront(tenantId);
+  }
+
+  /**
+   * Qabul qiluvchi akkaunt ko'rinishi (avatar + ism) — xariddan OLDIN
+   * mijoz to'g'ri odamga olayotganiga ishonch hosil qilishi uchun.
+   * Bitta harf xato bo'lsa Stars begona akkauntga ketadi va qaytmaydi.
+   */
+  @Get('recipient')
+  recipient(@Query('username') username: string) {
+    if (!username) throw new BadRequestException('username kerak');
+    return this.digital.previewRecipient(username);
   }
 
   @Get('orders')

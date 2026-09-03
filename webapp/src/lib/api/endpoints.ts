@@ -9,6 +9,7 @@ import type {
   MeDto,
   NumberOrder,
   PublicSettings,
+  RecipientPreview,
   ServiceDto,
   StorefrontOffer,
 } from './types';
@@ -49,6 +50,9 @@ export const apiListDigitalOrders = () => api<DigitalOrder[]>('/digital/orders')
 export const apiGetDigitalOrder = (id: string) => api<DigitalOrder>(`/digital/orders/${id}`);
 export const apiBuyDigital = (body: { digitalProductId: string; username: string }) =>
   api<DigitalOrder>('/digital/orders', { method: 'POST', body });
+/** @username kimga tegishli — avatar va ism (xato akkauntga yubormaslik uchun). */
+export const apiRecipientPreview = (username: string) =>
+  api<RecipientPreview>(`/digital/recipient?username=${encodeURIComponent(username)}`);
 
 // ───── Kripto (TON / USDT) — qo'lda yetkaziladi ─────
 export const apiCryptoStorefront = () => api<CryptoStorefront>('/crypto/storefront');
