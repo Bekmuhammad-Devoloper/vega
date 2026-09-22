@@ -87,14 +87,22 @@ jobs:
             exit 1
           fi
 
+      # Sog'liq SERVERNING O'ZIDA tekshiriladi, ommaviy domen orqali emas.
+      #
+      # Nega: domen orqali tekshirish DNS'ga bog'lanib qoladi. Server
+      # ko'chirilganda deploy muvaffaqiyatli bo'lsa ham bu qadam qizil
+      # bo'lardi; aksincha, eski server hali javob berayotgan bo'lsa yangi
+      # deploy singan holda ham yashil ko'rinardi. 127.0.0.1:2400 aynan
+      # hozir deploy qilingan nusxani tekshiradi.
       - name: Sog'liq tekshiruvi
         run: |
+          ssh -i ~/.ssh/id_deploy -p "${{ secrets.SSH_PORT || 22 }}"             "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" bash -s <<'REMOTE'
           for i in $(seq 1 10); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' \
-              "${{ secrets.HEALTH_URL || 'https://api.vega.yuksalish.dev/api/catalog/services' }}" || echo 000)
+            code=$(curl -s -o /dev/null -w '%{http_code}' -m 10               http://127.0.0.1:2400/api/catalog/services || echo 000)
             echo "urinish $i: HTTP $code"
             [ "$code" = "200" ] && exit 0
             sleep 6
           done
-          echo "::error::Sog'liq tekshiruvi o'tmadi — pm2 loglarini ko'ring"
+          echo "SOGLIQ TEKSHIRUVI OTMADI - pm2 loglarini koring"
           exit 1
+          REMOTE
