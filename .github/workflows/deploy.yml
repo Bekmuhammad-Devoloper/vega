@@ -80,7 +80,9 @@ jobs:
           # ko'rindi (keyscan yetib kelgan, ssh esa urinmagan ham).
           printf '%s\n' "${{ secrets.SSH_KEY }}" | tr -d '\015' > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          # DIQQAT: GITHUB_ENV ga yozilgan qiymat faqat KEYINGI qadamlarda
+          # ko'rinadi. Shu qadamning o'zida lokal $H/$P ishlatiladi.
+          ssh-keyscan -p "$P" -H "$H" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       # Ulanish tashxisi. Oldingi yiqilishda `ssh-keyscan` serverga yetib
       # borgan (server jurnalida ko'rindi), lekin `ssh` ning o'zi ULANISHGA
