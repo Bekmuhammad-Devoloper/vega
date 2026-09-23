@@ -54,7 +54,11 @@ jobs:
       - name: SSH kalitini o'rnatish
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_deploy
+          # CR belgilarisiz yozamiz. Secret Windows'dan nusxalanganda CRLF
+          # bilan saqlanadi; ssh bunday faylni "invalid format" deb RAD
+          # ETADI va serverga umuman ulanmaydi - server jurnalida aynan shu
+          # ko'rindi (keyscan yetib kelgan, ssh esa urinmagan ham).
+          printf '%s\n' "${{ secrets.SSH_KEY }}" | tr -d '\015' > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
           ssh-keyscan -p "${{ secrets.SSH_PORT || 22 }}" -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
@@ -74,7 +78,7 @@ jobs:
           echo "--- serverda kutilayotgani ---"
           echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ17kIWSwV69ZWSzSahvR6Uwq0Fn1nwO8xqUOdrjfAmO"
           echo "--- ulanish sinovi ---"
-          ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 -p "${{ secrets.SSH_PORT || 22 }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" 'echo ULANDI; hostname' || echo ULANMADI
+          ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 -p "${{ secrets.SSH_PORT || 22 }}" "${{ secrets.SSH_USER || 'root' }}@${{ secrets.SSH_HOST }}" 'echo ULANDI; hostname' || echo ULANMADI
 
       - name: Serverda deploy
         env:
@@ -89,15 +93,15 @@ jobs:
           # Uni avval repodagi versiya bilan yangilaymiz — aks holda skriptga
           # kiritilgan tuzatish push qilinsa ham serverga hech qachon yetmaydi.
           ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -p "${{ secrets.SSH_PORT || 22 }}" \
-            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "${{ secrets.SSH_USER || 'root' }}@${{ secrets.SSH_HOST }}" \
             "cd /opt/vega/app && git fetch --depth=1 origin saas && git reset --hard origin/saas && cp deploy/deploy.sh /opt/vega/deploy.sh && chmod +x /opt/vega/deploy.sh"
           ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -p "${{ secrets.SSH_PORT || 22 }}" \
-            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "${{ secrets.SSH_USER || 'root' }}@${{ secrets.SSH_HOST }}" \
             "SKIP_FRONTEND=$SKIP_FE bash /opt/vega/deploy.sh saas"
 
       - name: Serverda ayni shu commit ishlayaptimi
         run: |
-          REMOTE=$(ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -p "${{ secrets.SSH_PORT || 22 }}"             "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}"             'git -C /opt/vega/app rev-parse HEAD')
+          REMOTE=$(ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -p "${{ secrets.SSH_PORT || 22 }}"             "${{ secrets.SSH_USER || 'root' }}@${{ secrets.SSH_HOST }}"             'git -C /opt/vega/app rev-parse HEAD')
           echo "kutilgan: ${{ github.sha }}"
           echo "serverda: $REMOTE"
           if [ "$REMOTE" != "${{ github.sha }}" ]; then
@@ -114,7 +118,7 @@ jobs:
       # hozir deploy qilingan nusxani tekshiradi.
       - name: Sog'liq tekshiruvi
         run: |
-          ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -p "${{ secrets.SSH_PORT || 22 }}"             "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" bash -s <<'REMOTE'
+          ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -p "${{ secrets.SSH_PORT || 22 }}"             "${{ secrets.SSH_USER || 'root' }}@${{ secrets.SSH_HOST }}" bash -s <<'REMOTE'
           for i in $(seq 1 10); do
             code=$(curl -s -o /dev/null -w '%{http_code}' -m 10               http://127.0.0.1:2400/api/catalog/services || echo 000)
             echo "urinish $i: HTTP $code"
