@@ -5,14 +5,14 @@ GitHub'dan serverga SSH qilinmaydi.
 
 ## Nega bunday
 
-Avvalgi sxema GitHub Actions'dan serverga SSH bilan kirardi. Yangi serverga
-ko'chgandan keyin u ishlamay qoldi: server jurnali `ssh-keyscan` runner'dan
-yetib kelganini, lekin `ssh` ning o'zi **ulanishga ham urinmaganini**
-ko'rsatdi — ya'ni xato runner tomonidagi `SSH_KEY` secret'ida edi, server
-tomonida emas (SSH porti ochiq, kalit `authorized_keys` da, huquqlar to'g'ri).
+Avvalgi sxema GitHub Actions'dan serverga SSH kaliti bilan kirardi. Yangi
+server (62.171.184.14) esa **parol bilan ishlaydi — unda SSH kaliti yo'q**,
+GitHub Actions'dan parol bilan kirish esa xavfsiz emas va ishlamaydi.
 
 Repo public, shuning uchun serverning o'zi tortib olishi eng sodda yo'l:
 hech qanday kalit, hech qanday secret kerak emas, sindiradigan joyi yo'q.
+Shu sababli workflow'dagi `deploy` job butunlay olib tashlandi va
+`.github/workflows/check.yml` faqat sifat darvozasi bo'lib qoldi.
 
 ## Qanday ishlaydi
 

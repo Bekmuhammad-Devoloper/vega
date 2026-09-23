@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Vega avtodeploy - TORTIB OLUVCHI (pull) usul.
 #
-# NEGA: GitHub Actions'dan serverga SSH bilan kirish ishlamadi (runner
-# tomonidagi maxfiy kalit muammosi, uch marta tuzatishga urinildi). Repo
+# NEGA: bu server PAROL bilan ishlaydi, unda SSH kaliti yo'q. GitHub
+# Actions'dan parol bilan kirish esa xavfsiz emas va ishlamaydi. Repo
 # PUBLIC, shuning uchun serverning o'zi GitHub'dan tortib olsa - hech
 # qanday kalit, hech qanday secret kerak emas va sindiradigan joyi yo'q.
 #

@@ -1,0 +1,57 @@
+name: Check
+
+# `saas` branchiga push -> kod tekshiriladi (tsc + nest build).
+# SERVERGA YETKAZISH BU YERDA EMAS: serverdagi `vega-autodeploy.timer`
+# shu tekshiruv o'tganini ko'rib, kodni o'zi tortib oladi (~90 soniya).
+on:
+  push:
+    branches: [saas]
+    paths-ignore: ['**.md', 'docs/**']
+  workflow_dispatch:
+
+concurrency:
+  group: check-saas
+  cancel-in-progress: true
+
+jobs:
+  # ── 1) Darvoza: buzuq kod serverga chiqmasin ──────────────────
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Bog'liqliklar
+        working-directory: backend
+        run: npm ci --no-audit --no-fund
+
+      - name: Prisma generate
+        working-directory: backend
+        run: npx prisma generate
+
+      - name: Tip tekshiruvi
+        working-directory: backend
+        run: npx tsc --noEmit -p tsconfig.json
+
+      - name: Build
+        working-directory: backend
+        run: npx nest build
+
+  # ── 2) Deploy: faqat tekshiruv o'tsa ─────────────────────────
+  # ── Serverga yetkazish ────────────────────────────────────────
+  #
+  # Bu yerda DEPLOY JOB YO'Q va bu ataylab shunday.
+  #
+  # Server (62.171.184.14) PAROL bilan ishlaydi, unda SSH kaliti yo'q.
+  # GitHub Actions'dan parol bilan kirish esa xavfsiz emas va ishlamaydi.
+  # Shuning uchun yetkazish TORTIB OLUVCHI usulga o'tkazildi: serverdagi
+  # `vega-autodeploy.timer` har daqiqada `saas` boshini tekshiradi va
+  # yuqoridagi `check` job muvaffaqiyatli tugagan bo'lsa o'zi deploy
+  # qiladi. Push'dan deploy'gacha ~90 soniya.
+  #
+  # Ya'ni `check` darvoza vazifasini bajaradi: u yiqilsa kod serverga
+  # CHIQMAYDI. Tafsilot: `deploy/AUTODEPLOY.md`.
