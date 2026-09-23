@@ -52,7 +52,27 @@ jobs:
     environment: production
     steps:
       - name: SSH kalitini o'rnatish
+        env:
+          SSH_HOST_RAW: ${{ secrets.SSH_HOST }}
+          SSH_USER_RAW: ${{ secrets.SSH_USER }}
+          SSH_PORT_RAW: ${{ secrets.SSH_PORT }}
         run: |
+          # Secret'lardan BO'SH JOY va YANGI QATORNI olib tashlaymiz.
+          #
+          # Deploy aynan shuning uchun yiqilardi: `ssh: hostname contains
+          # invalid characters`. GitHub secret'ga qiymat qo'yilganda oxirida
+          # ko'rinmas yangi qator qolib ketgan; qo'shtirnoq ichida u host
+          # nomining bir qismiga aylanadi va ssh ulanmasdan turib yiqiladi.
+          # (Aynan shu sabab server jurnalida `ssh-keyscan` ko'rinib, `ssh`
+          # ning o'zi umuman ko'rinmagan edi.)
+          H=$(printf '%s' "$SSH_HOST_RAW" | tr -d '[:space:]')
+          U=$(printf '%s' "$SSH_USER_RAW" | tr -d '[:space:]'); U=${U:-root}
+          P=$(printf '%s' "$SSH_PORT_RAW" | tr -d '[:space:]'); P=${P:-22}
+          test -n "$H" || { echo "::error::SSH_HOST secret bo'sh"; exit 1; }
+          echo "SSH_HOST=$H" >> "$GITHUB_ENV"
+          echo "SSH_USER=$U" >> "$GITHUB_ENV"
+          echo "SSH_PORT=$P" >> "$GITHUB_ENV"
+          echo "manzil: $U@$H:$P"
           mkdir -p ~/.ssh
           # CR belgilarisiz yozamiz. Secret Windows'dan nusxalanganda CRLF
           # bilan saqlanadi; ssh bunday faylni "invalid format" deb RAD
@@ -60,7 +80,7 @@ jobs:
           # ko'rindi (keyscan yetib kelgan, ssh esa urinmagan ham).
           printf '%s\n' "${{ secrets.SSH_KEY }}" | tr -d '\015' > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-          ssh-keyscan -p "${{ secrets.SSH_PORT || 22 }}" -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
       # Ulanish tashxisi. Oldingi yiqilishda `ssh-keyscan` serverga yetib
       # borgan (server jurnalida ko'rindi), lekin `ssh` ning o'zi ULANISHGA
@@ -78,7 +98,7 @@ jobs:
           echo "--- serverda kutilayotgani ---"
           echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ17kIWSwV69ZWSzSahvR6Uwq0Fn1nwO8xqUOdrjfAmO"
           echo "--- ulanish sinovi ---"
-          ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 -p "${{ secrets.SSH_PORT || 22 }}" "${{ secrets.SSH_USER || 'root' }}@${{ secrets.SSH_HOST }}" 'echo ULANDI; hostname' || echo ULANMADI
+          ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" 'echo ULANDI; hostname' || echo ULANMADI
 
       - name: Serverda deploy
         env:
@@ -92,16 +112,16 @@ jobs:
           # deploy.sh serverda ALOHIDA nusxa (/opt/vega/deploy.sh) bo'lib turadi.
           # Uni avval repodagi versiya bilan yangilaymiz — aks holda skriptga
           # kiritilgan tuzatish push qilinsa ham serverga hech qachon yetmaydi.
-          ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -p "${{ secrets.SSH_PORT || 22 }}" \
-            "${{ secrets.SSH_USER || 'root' }}@${{ secrets.SSH_HOST }}" \
+          ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -p "$SSH_PORT" \
+            "$SSH_USER@$SSH_HOST" \
             "cd /opt/vega/app && git fetch --depth=1 origin saas && git reset --hard origin/saas && cp deploy/deploy.sh /opt/vega/deploy.sh && chmod +x /opt/vega/deploy.sh"
-          ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -p "${{ secrets.SSH_PORT || 22 }}" \
-            "${{ secrets.SSH_USER || 'root' }}@${{ secrets.SSH_HOST }}" \
+          ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -p "$SSH_PORT" \
+            "$SSH_USER@$SSH_HOST" \
             "SKIP_FRONTEND=$SKIP_FE bash /opt/vega/deploy.sh saas"
 
       - name: Serverda ayni shu commit ishlayaptimi
         run: |
-          REMOTE=$(ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -p "${{ secrets.SSH_PORT || 22 }}"             "${{ secrets.SSH_USER || 'root' }}@${{ secrets.SSH_HOST }}"             'git -C /opt/vega/app rev-parse HEAD')
+          REMOTE=$(ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -p "$SSH_PORT"             "$SSH_USER@$SSH_HOST"             'git -C /opt/vega/app rev-parse HEAD')
           echo "kutilgan: ${{ github.sha }}"
           echo "serverda: $REMOTE"
           if [ "$REMOTE" != "${{ github.sha }}" ]; then
@@ -118,7 +138,7 @@ jobs:
       # hozir deploy qilingan nusxani tekshiradi.
       - name: Sog'liq tekshiruvi
         run: |
-          ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -p "${{ secrets.SSH_PORT || 22 }}"             "${{ secrets.SSH_USER || 'root' }}@${{ secrets.SSH_HOST }}" bash -s <<'REMOTE'
+          ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -p "$SSH_PORT"             "$SSH_USER@$SSH_HOST" bash -s <<'REMOTE'
           for i in $(seq 1 10); do
             code=$(curl -s -o /dev/null -w '%{http_code}' -m 10               http://127.0.0.1:2400/api/catalog/services || echo 000)
             echo "urinish $i: HTTP $code"
