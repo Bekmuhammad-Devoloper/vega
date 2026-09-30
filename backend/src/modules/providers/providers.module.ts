@@ -7,6 +7,8 @@ import { MockAdapter } from './mock.adapter';
 import { SmmProvider } from './smm.provider';
 import { TelegramGiftProvider } from './telegram-gift.provider';
 import { IstarProvider } from './istar.provider';
+import { LztProvider } from './lzt.provider';
+import { LztAdapter } from './lzt.adapter';
 import { TelegramUserbotProvider } from './telegram-userbot.provider';
 import { ProvidersService } from './providers.service';
 
@@ -20,6 +22,8 @@ import { ProvidersService } from './providers.service';
     SmmProvider,
     TelegramGiftProvider,
     IstarProvider,
+    LztProvider,
+    LztAdapter,
     TelegramUserbotProvider,
     ProvidersService,
   ],
@@ -28,6 +32,7 @@ import { ProvidersService } from './providers.service';
     SmmProvider,
     TelegramGiftProvider,
     IstarProvider,
+    LztProvider,
     TelegramUserbotProvider,
   ],
 })

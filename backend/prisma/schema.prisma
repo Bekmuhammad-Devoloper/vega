@@ -38,10 +38,11 @@ enum NumberOrderStatus {
 
 /// Provayder turi
 enum ProviderKind {
-  SPIDER // real SIM, Telegram (asosiy)
+  SPIDER // real SIM, Telegram (LZT sozlanmagan bo'lsa)
   HEROSMS // arzon, boshqa xizmatlar
   FRAGMENT // Stars / Premium
   MOCK // demo/test
+  LZT // LZT Market — tayyor Telegram akkaunti + kirish kodi (asosiy Telegram manbasi, xarid qaytmaydi)
 }
 
 /// Mijoz to'lov usuli (reseller do'konida)

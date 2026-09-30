@@ -52,6 +52,8 @@ export class CatalogService {
       this.listCountries(true),
     ]);
     if (!service?.telegramOnly) return countries;
+    // LZT deyarli barcha davlatlarni qamraydi — zaxira xaridda tekshiriladi.
+    if (this.providers.telegramProvider() === ProviderKind.LZT) return countries;
     const supported = await this.providers.spiderSupportedIso2();
     if (!supported.size) return countries; // SPIDER javob bermasa — hammasi
     return countries.filter((c) =>
@@ -103,7 +105,8 @@ export class CatalogService {
 
   /// (xizmat×davlat) uchun JONLI ulgurji narx — provayderdan tannarx olib,
   /// markup + kurs qo'llaydi. Order oqimi va admin "tan narxi" shuni ishlatadi.
-  /// Router: telegramOnly -> SPIDER, aks holda -> HEROSMS. Narx yo'q bo'lsa null.
+  /// Router: telegramOnly -> LZT (kalit bo'lsa) yoki SPIDER, aks holda -> HEROSMS.
+  /// Narx yo'q bo'lsa null.
   async wholesaleFor(
     serviceId: string,
     countryId: string,
@@ -120,7 +123,7 @@ export class CatalogService {
     if (!service || !country) return null;
 
     const provider = service.telegramOnly
-      ? ProviderKind.SPIDER
+      ? this.providers.telegramProvider()
       : ProviderKind.HEROSMS;
 
     const costUsd = await this.providers.getPriceUsd(provider, {

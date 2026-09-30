@@ -24,7 +24,8 @@ export class SuperDashboardController {
   async balances() {
     const platform = await this.wallet.platformBalance();
     const kinds: { kind: ProviderKind; label: string }[] = [
-      { kind: ProviderKind.SPIDER, label: 'Telegram raqamlari' },
+      { kind: ProviderKind.LZT, label: 'Telegram raqamlari (LZT)' },
+      { kind: ProviderKind.SPIDER, label: 'Telegram raqamlari (SPIDER)' },
       { kind: ProviderKind.HEROSMS, label: 'Boshqa xizmatlar' },
     ];
     const providers = await Promise.all(

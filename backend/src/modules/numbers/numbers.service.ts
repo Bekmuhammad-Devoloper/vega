@@ -161,7 +161,9 @@ export class NumbersService {
     // taklif alohida `isAvailable()` chaqirardi va kesh sovuq bo'lganda
     // o'nlab so'rov bir vaqtda provayderga urilib, vitrina sekinlashardi yoki
     // butunlay "Xatolik yuz berdi" bo'lib qolardi.
-    const needsSpider = offers.some((o) => o.service.telegramOnly);
+    // Telegram manbasi: LZT (kalit bo'lsa) yoki SPIDER.
+    const tgLzt = this.providers.telegramProvider() === ProviderKind.LZT;
+    const needsSpider = !tgLzt && offers.some((o) => o.service.telegramOnly);
     const needsHero = offers.some((o) => !o.service.telegramOnly);
 
     const [spiderIso, heroMap] = await Promise.all([
@@ -174,6 +176,11 @@ export class NumbersService {
     ]);
 
     return offers.filter((o) => {
+      if (o.service.telegramOnly && tgLzt) {
+        // LZT zaxirasi davlat bo'yicha keshdan; hali tekshirilmagan bo'lsa
+        // YASHIRMAYMIZ (narx/xarid paytida baribir tekshiriladi).
+        return this.providers.lztKnownStock(o.country.iso2 ?? '') ?? true;
+      }
       if (o.service.telegramOnly) {
         // Provayder javob bermadi — yo'nalishni YASHIRMAYMIZ (xarid paytida
         // baribir tekshiriladi). Vitrina bo'sh qolgandan ko'ra shu yaxshi.
@@ -422,6 +429,15 @@ export class NumbersService {
     // ya'ni EXPIRED buyurtmaga cancel chaqirilsa (mijoz endpointi ochiq!)
     // pul IKKINCHI marta qaytarilardi: expire allaqachon refund qilgan.
     if (o.status !== NumberOrderStatus.WAITING_CODE) return o;
+    // LZT: akkaunt allaqachon SOTIB OLINGAN, provayder pulni qaytarmaydi.
+    // Mijoz (userId berilgan) o'zi bekor qila olmaydi. Do'kon egasi kanal
+    // tugmasi orqali (userId yo'q) o'z hisobidan qaytarishi mumkin.
+    if (o.provider === ProviderKind.LZT && userId) {
+      throw new BadRequestException(
+        "Bu tayyor Telegram akkaunti — u allaqachon sotib olingan, bekor qilib bo'lmaydi. " +
+          "Telegram'ga shu raqam bilan kiring, kod shu yerda chiqadi. Muammo bo'lsa do'kon bilan bog'laning.",
+      );
+    }
     try {
       await this.providers.cancel(o.provider, o.providerId);
     } catch {
@@ -520,6 +536,18 @@ export class NumbersService {
 
       const o = await tx.numberOrder.findUnique({ where: { id } });
       if (!o) return null;
+      // LZT akkaunti sotib olingan — muddat tugasa ham pul QAYTMAYDI
+      // (provayder qaytarmaydi). Mijozga "pul qaytdi" xabari ham yuborilmaydi.
+      if (o.provider === ProviderKind.LZT) {
+        await tx.numberOrderEvent.create({
+          data: {
+            orderId: id,
+            status: NumberOrderStatus.EXPIRED,
+            comment: "Kod kelmadi (LZT akkaunti — qaytarilmaydi)",
+          },
+        });
+        return null;
+      }
       await tx.user.update({
         where: { id: o.userId },
         data: { balance: { increment: Number(o.retailPrice) } },

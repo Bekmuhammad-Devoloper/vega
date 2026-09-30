@@ -11,6 +11,7 @@ import { SpiderAdapter } from './spider.adapter';
 import { HeroSmsAdapter } from './herosms.adapter';
 import { FragmentAdapter } from './fragment.adapter';
 import { MockAdapter } from './mock.adapter';
+import { LztAdapter } from './lzt.adapter';
 
 /// Barcha provayderlarni birlashtiruvchi router.
 /// NumberOrder.provider (ProviderKind) bo'yicha to'g'ri adapterga yo'naltiradi —
@@ -25,13 +26,29 @@ export class ProvidersService {
     fragment: FragmentAdapter,
     mock: MockAdapter,
     private readonly config: ConfigService,
+    private readonly lzt: LztAdapter,
   ) {
     this.map = new Map<ProviderKind, ProviderAdapter>([
       [ProviderKind.SPIDER, this.spider],
       [ProviderKind.HEROSMS, hero],
       [ProviderKind.FRAGMENT, fragment],
       [ProviderKind.MOCK, mock],
+      [ProviderKind.LZT, lzt],
     ]);
+  }
+
+  /**
+   * Telegram raqamlari manbasi: LZT Market (arzonroq, tayyor akkaunt) kaliti
+   * bo'lsa — LZT, aks holda SPIDER (real SIM). Katalog/vitrina/xarid shu bitta
+   * joydan qaror qiladi.
+   */
+  telegramProvider(): ProviderKind {
+    return this.lzt.isConfigured() ? ProviderKind.LZT : ProviderKind.SPIDER;
+  }
+
+  /** LZT zaxirasi ma'lum bo'lsa true/false, hali tekshirilmagan bo'lsa null. */
+  lztKnownStock(iso2: string): boolean | null {
+    return this.lzt.knownStock(iso2);
   }
 
   /** SPIDER (Telegram) qo'llaydigan davlat ISO2 to'plami. */
@@ -58,6 +75,11 @@ export class ProvidersService {
     input: { countryIso2?: string | null; countryHeroCode?: string | null; serviceHeroCode?: string | null },
   ): Promise<boolean> {
     try {
+      if (kind === ProviderKind.LZT) {
+        const iso = (input.countryIso2 ?? '').toUpperCase();
+        if (!iso) return false;
+        return this.lzt.knownStock(iso) ?? true; // noma'lum — yashirmaymiz
+      }
       if (kind === ProviderKind.SPIDER) {
         const iso = (input.countryIso2 ?? '').toUpperCase();
         if (!iso) return false;
