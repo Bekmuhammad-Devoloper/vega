@@ -63,6 +63,11 @@ interface Offer {
   price: number; // RUB
 }
 
+// Faqat QONUNIY kelib chiqqan akkauntlar. LZT'dagi eng arzon akkauntlar
+// ko'pincha `phishing`/`brute`/`stealer` — ya'ni O'G'IRLANGAN. Ularni
+// sotmaymiz. `resale` asl kelib chiqishini yashiradi — uni ham olmaymiz.
+const SAFE_ORIGINS = ["autoreg", "self_registration", "personal"];
+
 const offerCache = new Map<string, { at: number; offers: Offer[]; total: number }>();
 const OFFER_TTL = 45_000;
 
@@ -76,6 +81,7 @@ function searchPath(product: string, variant: string): string | null {
       password: "no", // 2FA paroli yo'q — mijoz faqat kod bilan kiradi
       order_by: "price_to_up",
     });
+    for (const o of SAFE_ORIGINS) q.append("origin[]", o);
     return `/telegram?${q}`;
   }
   if (product === "tg_premium") {
@@ -97,6 +103,8 @@ function usable(product: string, i: any): boolean {
   if (i?.item_state && i.item_state !== "active") return false;
   if (i?.canBuyItem === false) return false;
   if (!(Number(i?.price) > 0)) return false;
+  // Qidiruv filtri ishlamay qolsa ham — o'g'irlangan akkaunt o'tib ketmasin.
+  if (product === "telegram" && !SAFE_ORIGINS.includes(String(i?.item_origin))) return false;
   if (product === "tg_premium") {
     // Faqat HAVOLA bilan beriladigan gift'lar — avtomatik yetkazib bo'ladi.
     // ("на аккаунт" kabi sotuvchi qo'lda faollashtiradiganlari emas.)
