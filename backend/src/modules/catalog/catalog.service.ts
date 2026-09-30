@@ -144,8 +144,13 @@ export class CatalogService {
     // qiymat qabul qilinadi, aks holda default.
     const rateRaw = Number(this.config.get('USD_TO_UZS'));
     const rate = Number.isFinite(rateRaw) && rateRaw > 0 ? rateRaw : 12000;
-    const fixedRaw = Number(this.config.get('MARKUP_FIXED_UZS'));
-    const fixed = Number.isFinite(fixedRaw) && fixedRaw >= 0 ? fixedRaw : 1000;
+    // LZT uchun alohida ustama (default 1200 so'm) — LZT_MARKUP_FIXED_UZS.
+    const isLzt = provider === ProviderKind.LZT;
+    const fixedRaw = Number(
+      this.config.get(isLzt ? 'LZT_MARKUP_FIXED_UZS' : 'MARKUP_FIXED_UZS'),
+    );
+    const fixed =
+      Number.isFinite(fixedRaw) && fixedRaw >= 0 ? fixedRaw : isLzt ? 1200 : 1000;
     const costUzs = Math.round((costUsd * rate) / 100) * 100;
     const wholesaleUzs = costUzs + fixed;
 
