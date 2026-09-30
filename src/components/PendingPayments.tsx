@@ -16,6 +16,7 @@ export function PendingPayments() {
   const router = useRouter();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
   const load = useCallback(() => {
     fetch("/api/admin/payments")
@@ -30,25 +31,45 @@ export function PendingPayments() {
 
   async function act(id: string, action: "approve" | "reject") {
     setBusy(id);
+    setError("");
     try {
-      await fetch(`/api/admin/payments/${id}`, {
+      const res = await fetch(`/api/admin/payments/${id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action }),
       });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // Muvaffaqiyatsiz — to'lovni ro'yxatdan OLIB TASHLAMAYMIZ, xatoni
+        // ko'rsatamiz va ro'yxatni yangilaymiz (haqiqiy holatni ko'rsatish uchun).
+        setError(data.error || "Amalni bajarib bo'lmadi");
+        load();
+        return;
+      }
       setPayments((prev) => prev.filter((p) => p.id !== id));
       router.refresh();
+    } catch {
+      setError("Tarmoq xatosi. Qayta urinib ko'ring.");
+      load();
     } finally {
       setBusy(null);
     }
   }
 
   if (payments.length === 0) {
-    return <p className="text-sm text-[var(--muted)]">Kutilayotgan to&apos;lovlar yo&apos;q.</p>;
+    return (
+      <div className="space-y-2">
+        {error && <p className="text-sm text-red-400">{error}</p>}
+        <p className="text-sm text-[var(--muted)]">
+          Kutilayotgan to&apos;lovlar yo&apos;q.
+        </p>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-2">
+      {error && <p className="text-sm text-red-400">{error}</p>}
       {payments.map((p) => (
         <div
           key={p.id}

@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { config } from "@/lib/config";
 import { createSession, hashPassword } from "@/lib/auth";
 import { ok, fail } from "@/lib/http";
-import { limitOr429 } from "@/lib/ratelimit";
+import { limitOr429, recordFailure } from "@/lib/ratelimit";
 
 const schema = z.object({
   email: z.string().email("Email noto'g'ri"),
@@ -21,20 +22,33 @@ export async function POST(req: Request) {
 
     const exists = await prisma.user.findUnique({ where: { email: normEmail } });
     if (exists) {
+      // Mavjud email — bu urinishni "muvaffaqiyatsiz" deb belgilaymiz, shunda
+      // IP soxtalashtirib ommaviy email enumeratsiya qilish sekinlashadi.
+      recordFailure("register-email", normEmail, 60_000);
       return Response.json(
         { error: "Bu email allaqachon ro'yxatdan o'tgan" },
         { status: 409 }
       );
     }
 
-    // Birinchi foydalanuvchi — admin.
-    const count = await prisma.user.count();
+    // Admin tayinlash. Ikkala shart ham qoladi:
+    //  - ADMIN_EMAIL berilgan bo'lsa, aynan shu email admin bo'ladi;
+    //  - bundan qat'i nazar, BIRINCHI foydalanuvchi admin bo'ladi (bootstrap).
+    // Ikkinchisi saqlanmasa, ADMIN_EMAIL egasi ro'yxatdan o'tmaguncha tizimda
+    // umuman admin bo'lmay qolishi mumkin edi.
+    let role: "ADMIN" | "USER" = "USER";
+    if (config.adminEmail && normEmail === config.adminEmail) {
+      role = "ADMIN";
+    } else if ((await prisma.user.count()) === 0) {
+      role = "ADMIN";
+    }
+
     const user = await prisma.user.create({
       data: {
         email: normEmail,
         name: name || null,
         passwordHash: await hashPassword(password),
-        role: count === 0 ? "ADMIN" : "USER",
+        role,
       },
     });
 

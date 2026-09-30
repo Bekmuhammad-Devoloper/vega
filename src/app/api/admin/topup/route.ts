@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma, txRetry } from "@/lib/prisma";
 import { ok, fail } from "@/lib/http";
 
 const schema = z.object({
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await txRetry(async (tx) => {
       const u = await tx.user.update({
         where: { id: target.id },
         data: { balance: { increment: amount } },

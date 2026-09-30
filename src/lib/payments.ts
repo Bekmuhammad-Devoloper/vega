@@ -1,5 +1,5 @@
 import "server-only";
-import { prisma } from "@/lib/prisma";
+import { prisma, txRetry } from "@/lib/prisma";
 import {
   config,
   paymeEnabled,
@@ -63,13 +63,21 @@ async function creditPaymentTx(
   tx: Prisma.TransactionClient,
   paymentId: string
 ) {
-  const payment = await tx.payment.findUnique({ where: { id: paymentId } });
-  if (!payment) throw new PaymentError("To'lov topilmadi", 404);
-  if (payment.status === "PAID") return payment; // idempotent
-  if (payment.status === "REJECTED") {
+  // PENDING -> PAID ni atomar "band qilamiz". Faqat bitta so'rov muvaffaqiyatli
+  // band qiladi, shu bois parallel approve (yoki approve+demo) balansni IKKI
+  // MARTA oshira olmaydi.
+  const claimed = await tx.payment.updateMany({
+    where: { id: paymentId, status: "PENDING" },
+    data: { status: "PAID" },
+  });
+  if (claimed.count === 0) {
+    const p = await tx.payment.findUnique({ where: { id: paymentId } });
+    if (!p) throw new PaymentError("To'lov topilmadi", 404);
+    if (p.status === "PAID") return p; // idempotent — allaqachon hisoblangan
     throw new PaymentError("Bu to'lov rad etilgan");
   }
 
+  const payment = (await tx.payment.findUnique({ where: { id: paymentId } }))!;
   const user = await tx.user.update({
     where: { id: payment.userId },
     data: { balance: { increment: payment.amount } },
@@ -83,10 +91,7 @@ async function creditPaymentTx(
       note: `To'lov (${payment.method})`,
     },
   });
-  return tx.payment.update({
-    where: { id: payment.id },
-    data: { status: "PAID" },
-  });
+  return payment;
 }
 
 /** Payme checkout havolasini yasaydi (haqiqiy format). */
@@ -132,7 +137,7 @@ export async function createTopup(
   // DEMO — darhol tushadi.
   if (method === "demo") {
     if (!config.allowDemoTopup) throw new PaymentError("Demo o'chirilgan");
-    const payment = await prisma.$transaction(async (tx) => {
+    const payment = await txRetry(async (tx) => {
       const p = await tx.payment.create({
         data: { userId, amount, method: "demo", status: "PENDING" },
       });
@@ -191,18 +196,22 @@ export async function createTopup(
 
 /** Admin: kutilayotgan to'lovni tasdiqlaydi. */
 export async function approvePayment(paymentId: string) {
-  return prisma.$transaction((tx) => creditPaymentTx(tx, paymentId));
+  return txRetry((tx) => creditPaymentTx(tx, paymentId));
 }
 
 /** Admin: to'lovni rad etadi. */
 export async function rejectPayment(paymentId: string) {
-  const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
-  if (!payment) throw new PaymentError("To'lov topilmadi", 404);
-  if (payment.status !== "PENDING") {
-    throw new PaymentError("Faqat kutilayotgan to'lovni rad etish mumkin");
-  }
-  return prisma.payment.update({
-    where: { id: paymentId },
+  // Atomar: faqat hali PENDING bo'lsa REJECTED qilamiz. Agar shu orada approve
+  // uni PAID qilib balansni oshirgan bo'lsa — count 0 bo'lib, biz uni rad
+  // ETMAYMIZ (aks holda balans qo'shilgan-u, to'lov "rad etilgan" ko'rinardi).
+  const res = await prisma.payment.updateMany({
+    where: { id: paymentId, status: "PENDING" },
     data: { status: "REJECTED" },
   });
+  if (res.count === 0) {
+    const p = await prisma.payment.findUnique({ where: { id: paymentId } });
+    if (!p) throw new PaymentError("To'lov topilmadi", 404);
+    throw new PaymentError("Faqat kutilayotgan to'lovni rad etish mumkin");
+  }
+  return (await prisma.payment.findUnique({ where: { id: paymentId } }))!;
 }

@@ -6,8 +6,28 @@ import { config } from "@/lib/config";
 import { prisma } from "@/lib/prisma";
 
 const COOKIE_NAME = "session";
-const secret = new TextEncoder().encode(config.authSecret);
 const MAX_AGE = 60 * 60 * 24 * 30; // 30 kun
+
+/**
+ * Sessiya imzo kalitini qaytaradi. Ishlab chiqarishda zaif yoki standart
+ * ("dev-only-...") kalit bilan ishlashga YO'L QO'YMAYDI — aks holda kimdir
+ * manbadan ma'lum kalit bilan istalgan (jumladan admin) sessiyani soxtalashtira
+ * oladi. Tekshiruv runtime'da (build paytida emas) bo'ladi, shu bois `next build`
+ * buzilmaydi, lekin AUTH_SECRET to'g'ri berilmasa auth fail-closed bo'ladi.
+ */
+function getSecret(): Uint8Array {
+  const s = config.authSecret;
+  const weak = s === "" || s.startsWith("dev-only-secret") || s.length < 16;
+  if (process.env.NODE_ENV === "production" && weak) {
+    // Sabab faqat server loglariga — mijozga sozlama holatini oshkor qilmaymiz.
+    console.error(
+      "FATAL: AUTH_SECRET o'rnatilmagan yoki juda zaif. " +
+        "Kamida 32 belgili tasodifiy qiymat bering (auth ishlamaydi)."
+    );
+    throw new AuthError("Server xatosi", 500);
+  }
+  return new TextEncoder().encode(s);
+}
 
 export async function hashPassword(plain: string): Promise<string> {
   return bcrypt.hash(plain, 10);
@@ -25,7 +45,7 @@ async function signSession(userId: string): Promise<string> {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${MAX_AGE}s`)
-    .sign(secret);
+    .sign(getSecret());
 }
 
 /** Sessiya cookie'sini o'rnatadi (login/register'dan keyin). */
@@ -52,7 +72,7 @@ export async function getSessionUserId(): Promise<string | null> {
   const token = store.get(COOKIE_NAME)?.value;
   if (!token) return null;
   try {
-    const { payload } = await jwtVerify(token, secret);
+    const { payload } = await jwtVerify(token, getSecret());
     return (payload.sub as string) ?? null;
   } catch {
     return null;
