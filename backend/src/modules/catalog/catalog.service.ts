@@ -1,9 +1,12 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Cron } from '@nestjs/schedule';
 import { ProviderKind, TariffPlan } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { ProvidersService } from '../providers/providers.service';
@@ -20,7 +23,9 @@ export interface UpsertPriceDto {
 /// Platforma katalogi — xizmatlar, davlatlar va ULGURJI narxlar.
 /// Superadmin narxlarni belgilaydi; numbers moduli resolvePrice() bilan o'qiydi.
 @Injectable()
-export class CatalogService {
+export class CatalogService implements OnModuleInit {
+  private readonly logger = new Logger(CatalogService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly providers: ProvidersService,
@@ -33,6 +38,37 @@ export class CatalogService {
       where: activeOnly ? { isActive: true } : undefined,
       orderBy: { position: 'asc' },
     });
+  }
+
+  // ── LZT narx keshini issiq saqlash ──
+  // "Narxlar" sahifasi har taklif kartochkasi uchun narx so'raydi; LZT limit
+  // tufayli so'rovlar navbatda turadi va sovuq keshda sahifa 15-20 soniya
+  // "yuklanmoqda" bo'lib qolardi. Shuning uchun sotuvdagi Telegram
+  // davlatlarini fonda oldindan yangilab turamiz.
+  onModuleInit() {
+    setTimeout(() => void this.warmLzt(), 10_000);
+  }
+
+  private warming = false;
+
+  @Cron('0 */10 * * * *')
+  async warmLzt() {
+    if (this.warming || !this.providers.isConfigured(ProviderKind.LZT)) return;
+    this.warming = true;
+    try {
+      const rows = await this.prisma.resellerOffer.findMany({
+        where: { isActive: true, service: { telegramOnly: true } },
+        select: { country: { select: { iso2: true } } },
+        distinct: ['countryId'],
+      });
+      const isos = rows.map((r) => r.country.iso2).filter((x): x is string => !!x);
+      await this.providers.warmLzt(isos);
+      this.logger.log(`LZT narxlari yangilandi: ${isos.length} davlat`);
+    } catch (e) {
+      this.logger.warn(`LZT warm: ${String(e)}`);
+    } finally {
+      this.warming = false;
+    }
   }
 
   listCountries(activeOnly = true) {
@@ -52,8 +88,8 @@ export class CatalogService {
       this.listCountries(true),
     ]);
     if (!service?.telegramOnly) return countries;
-    // LZT deyarli barcha davlatlarni qamraydi — zaxira xaridda tekshiriladi.
-    if (this.providers.telegramProvider() === ProviderKind.LZT) return countries;
+    // LZT deyarli barcha davlatlarni qamraydi — zaxira narx/xaridda tekshiriladi.
+    if (this.providers.isConfigured(ProviderKind.LZT)) return countries;
     const supported = await this.providers.spiderSupportedIso2();
     if (!supported.size) return countries; // SPIDER javob bermasa — hammasi
     return countries.filter((c) =>
@@ -105,8 +141,8 @@ export class CatalogService {
 
   /// (xizmat×davlat) uchun JONLI ulgurji narx — provayderdan tannarx olib,
   /// markup + kurs qo'llaydi. Order oqimi va admin "tan narxi" shuni ishlatadi.
-  /// Router: telegramOnly -> LZT (kalit bo'lsa) yoki SPIDER, aks holda -> HEROSMS.
-  /// Narx yo'q bo'lsa null.
+  /// Router: telegramOnly -> SPIDER va LZT'dan davlat bo'yicha ARZONI (ustama
+  /// bilan solishtiriladi), aks holda -> HEROSMS. Narx yo'q bo'lsa null.
   async wholesaleFor(
     serviceId: string,
     countryId: string,
@@ -122,39 +158,57 @@ export class CatalogService {
     ]);
     if (!service || !country) return null;
 
-    const provider = service.telegramOnly
-      ? this.providers.telegramProvider()
-      : ProviderKind.HEROSMS;
-
-    const costUsd = await this.providers.getPriceUsd(provider, {
+    const input = {
       serviceSlug: service.slug,
       serviceHeroCode: service.heroCode,
       countrySlug: country.slug,
       countryIso2: country.iso2,
       countryHeroCode: country.heroCode,
-    });
-    if (costUsd == null) return null;
+    };
 
-    // Tan narx = provayder real narxi (so'mda, 100 gacha yaxlit) + belgilangan
-    // ustama (default 1000 so'm). Ya'ni platforma har raqamdan shu farqni oladi.
-    //
-    // XAVFSIZ PARSE: `Number('')` = 0 va `Number('12 000')` = NaN! Kurs 0 bo'lsa
-    // raqamlar deyarli TEKINGA sotilardi (costUzs=0 + 1000 so'm), NaN bo'lsa
-    // xarid provayderdan raqam OLINGANDAN KEYIN yiqilardi. Faqat musbat chekli
-    // qiymat qabul qilinadi, aks holda default.
+    // Kurs. XAVFSIZ PARSE: `Number('')` = 0 va `Number('12 000')` = NaN! Kurs 0
+    // bo'lsa raqamlar deyarli TEKINGA sotilardi, NaN bo'lsa xarid provayderdan
+    // raqam OLINGANDAN KEYIN yiqilardi. Faqat musbat chekli qiymat qabul qilinadi.
     const rateRaw = Number(this.config.get('USD_TO_UZS'));
     const rate = Number.isFinite(rateRaw) && rateRaw > 0 ? rateRaw : 12000;
-    // LZT uchun alohida ustama (default 1200 so'm) — LZT_MARKUP_FIXED_UZS.
-    const isLzt = provider === ProviderKind.LZT;
-    const fixedRaw = Number(
-      this.config.get(isLzt ? 'LZT_MARKUP_FIXED_UZS' : 'MARKUP_FIXED_UZS'),
-    );
-    const fixed =
-      Number.isFinite(fixedRaw) && fixedRaw >= 0 ? fixedRaw : isLzt ? 1200 : 1000;
-    const costUzs = Math.round((costUsd * rate) / 100) * 100;
-    const wholesaleUzs = costUzs + fixed;
 
-    return { provider, costUsd, wholesaleUsd: wholesaleUzs / rate, wholesaleUzs };
+    // Nomzodlar. Telegram: SPIDER (real SIM) va LZT (tayyor akkaunt) —
+    // davlat bo'yicha QAYSI ARZON bo'lsa o'sha. Boshqa xizmatlar: HeroSMS.
+    let kinds: ProviderKind[];
+    if (service.telegramOnly) {
+      kinds = [ProviderKind.SPIDER, ProviderKind.LZT].filter((k) =>
+        this.providers.isConfigured(k),
+      );
+      if (!kinds.length) kinds = [ProviderKind.SPIDER]; // eski xulq (xato xaridda chiqadi)
+    } else {
+      kinds = [ProviderKind.HEROSMS];
+    }
+
+    const quotes = await Promise.all(
+      kinds.map(async (provider) => {
+        const costUsd = await this.providers
+          .getPriceUsd(provider, input)
+          .catch(() => null); // bitta manba yiqilsa — ikkinchisi ishlayversin
+        if (costUsd == null || !Number.isFinite(costUsd) || costUsd <= 0) return null;
+        // Tan narx = provayder real narxi (so'mda, 100 gacha yaxlit) + belgilangan
+        // ustama: SPIDER/HeroSMS — MARKUP_FIXED_UZS (1000), LZT — LZT_MARKUP_FIXED_UZS (1200).
+        const isLzt = provider === ProviderKind.LZT;
+        const fixedRaw = Number(
+          this.config.get(isLzt ? 'LZT_MARKUP_FIXED_UZS' : 'MARKUP_FIXED_UZS'),
+        );
+        const fixed =
+          Number.isFinite(fixedRaw) && fixedRaw >= 0 ? fixedRaw : isLzt ? 1200 : 1000;
+        const wholesaleUzs = Math.round((costUsd * rate) / 100) * 100 + fixed;
+        return { provider, costUsd, wholesaleUsd: wholesaleUzs / rate, wholesaleUzs };
+      }),
+    );
+
+    // Eng arzoni; teng bo'lsa SPIDER (real SIM — xavfsizroq) — nomzodlar tartibi shunday.
+    let best: (typeof quotes)[number] = null;
+    for (const q of quotes) {
+      if (q && (!best || q.wholesaleUzs < best.wholesaleUzs)) best = q;
+    }
+    return best;
   }
 
   /// Free-tarif SINOV holati (default 10 kun). Abuse himoyasi: sinov boshlanish

@@ -37,13 +37,9 @@ export class ProvidersService {
     ]);
   }
 
-  /**
-   * Telegram raqamlari manbasi: LZT Market (arzonroq, tayyor akkaunt) kaliti
-   * bo'lsa — LZT, aks holda SPIDER (real SIM). Katalog/vitrina/xarid shu bitta
-   * joydan qaror qiladi.
-   */
-  telegramProvider(): ProviderKind {
-    return this.lzt.isConfigured() ? ProviderKind.LZT : ProviderKind.SPIDER;
+  /** LZT narx keshini fonda yangilash (katalog cron'i chaqiradi). */
+  warmLzt(iso2s: string[]): Promise<void> {
+    return this.lzt.warm(iso2s);
   }
 
   /** LZT zaxirasi ma'lum bo'lsa true/false, hali tekshirilmagan bo'lsa null. */

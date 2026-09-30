@@ -223,6 +223,32 @@ function OfferProfit({
 }
 
 /**
+ * Tan narxi qaysi manbadan: davlat bo'yicha SPIDER yoki LZT (arzoni) tanlanadi.
+ *  • SPIDER — real SIM karta, SMS keladi (ishonchli)
+ *  • LZT    — tayyor Telegram akkaunti; xarid QAYTARILMAYDI (risk)
+ */
+function ProviderNote({ provider }: { provider?: string | null }) {
+  if (provider === 'SPIDER') {
+    return (
+      <p className="mt-0.5 text-xs font-semibold text-[var(--color-success)]">
+        📶 SPIDER — real SIM raqam
+      </p>
+    );
+  }
+  if (provider === 'LZT') {
+    return (
+      <p className="mt-0.5 text-xs font-semibold text-amber-700">
+        ⚠️ LZT — tayyor akkaunt (risk: xarid qaytarilmaydi, bekor qilib bo&apos;lmaydi)
+      </p>
+    );
+  }
+  if (provider === 'HEROSMS') {
+    return <p className="mt-0.5 text-xs text-[var(--color-text-muted)]">HeroSMS — virtual raqam</p>;
+  }
+  return null;
+}
+
+/**
  * Free sinov bosqichi bo'yicha ogohlantirish:
  *  • FREE      (1–7 kun)  — tan narxida, qo'shimchasiz
  *  • SURCHARGE (8–10 kun) — har sotuvdan +1200 so'm ustama
@@ -358,6 +384,7 @@ function EditOfferSheet({
                 Tan narxi (ulgurji):{' '}
                 <b className="text-[var(--color-text)]">{formatMoney(wholesale)}</b>
               </p>
+              <ProviderNote provider={priceInfo?.provider} />
               <TrialNotice info={priceInfo} />
               {price > 0 &&
                 (profit! >= 0 ? (
@@ -506,6 +533,7 @@ function AddOfferSheet({
                   Tan narxi (ulgurji):{' '}
                   <b className="text-[var(--color-text)]">{formatMoney(wholesale)}</b>
                 </p>
+                <ProviderNote provider={priceInfo?.provider} />
                 <TrialNotice info={priceInfo} />
                 {price > 0 &&
                   (profit! >= 0 ? (

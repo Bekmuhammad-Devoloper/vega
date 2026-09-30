@@ -161,9 +161,10 @@ export class NumbersService {
     // taklif alohida `isAvailable()` chaqirardi va kesh sovuq bo'lganda
     // o'nlab so'rov bir vaqtda provayderga urilib, vitrina sekinlashardi yoki
     // butunlay "Xatolik yuz berdi" bo'lib qolardi.
-    // Telegram manbasi: LZT (kalit bo'lsa) yoki SPIDER.
-    const tgLzt = this.providers.telegramProvider() === ProviderKind.LZT;
-    const needsSpider = !tgLzt && offers.some((o) => o.service.telegramOnly);
+    // Telegram: davlat bo'yicha SPIDER yoki LZT (qaysi arzon bo'lsa) — ikkalasidan
+    // birida zaxira bo'lsa taklif ko'rinadi.
+    const lztOn = this.providers.isConfigured(ProviderKind.LZT);
+    const needsSpider = offers.some((o) => o.service.telegramOnly);
     const needsHero = offers.some((o) => !o.service.telegramOnly);
 
     const [spiderIso, heroMap] = await Promise.all([
@@ -176,10 +177,10 @@ export class NumbersService {
     ]);
 
     return offers.filter((o) => {
-      if (o.service.telegramOnly && tgLzt) {
-        // LZT zaxirasi davlat bo'yicha keshdan; hali tekshirilmagan bo'lsa
-        // YASHIRMAYMIZ (narx/xarid paytida baribir tekshiriladi).
-        return this.providers.lztKnownStock(o.country.iso2 ?? '') ?? true;
+      // LZT zaxirasi davlat bo'yicha keshdan; hali tekshirilmagan bo'lsa
+      // YASHIRMAYMIZ (narx/xarid paytida baribir tekshiriladi).
+      if (o.service.telegramOnly && lztOn) {
+        if (this.providers.lztKnownStock(o.country.iso2 ?? '') ?? true) return true;
       }
       if (o.service.telegramOnly) {
         // Provayder javob bermadi — yo'nalishni YASHIRMAYMIZ (xarid paytida

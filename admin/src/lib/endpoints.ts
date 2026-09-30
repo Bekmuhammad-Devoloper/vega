@@ -445,8 +445,10 @@ export const apiServiceCountries = (serviceId: string) =>
 export const apiCatalogPrice = (serviceId: string, countryId: string) =>
   api<{
     available: boolean;
+    /** Shu davlat uchun tanlangan (arzon) manba. */
+    provider: 'SPIDER' | 'LZT' | 'HEROSMS' | 'FRAGMENT' | 'MOCK' | null;
     wholesaleUzs: number | null; // reseller to'laydigan TO'LIQ narx
-    baseUzs: number | null; // sof tan narxi (SPIDER + 1000)
+    baseUzs: number | null; // sof tan narxi (provayder + ustama)
     surchargeUzs: number | null; // free sinov ustamasi (0 yoki 1200)
     state: 'TRIAL' | 'EXPIRED' | 'PAID' | null;
     phase: 'FREE' | 'SURCHARGE' | 'EXPIRED' | 'PAID' | null;

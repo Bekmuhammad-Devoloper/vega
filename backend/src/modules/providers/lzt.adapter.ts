@@ -18,9 +18,13 @@ export class LztAdapter implements ProviderAdapter {
   readonly kind = ProviderKind.LZT;
   private readonly logger = new Logger(LztAdapter.name);
 
-  /** ISO2 -> eng arzon takliflar. Mijozga ko'rsatilgan narx shu yerdan. */
+  /**
+   * ISO2 -> eng arzon takliflar. Mijozga ko'rsatilgan narx shu yerdan.
+   * Katalog har 10 daqiqada sotuvdagi davlatlarni fonda yangilab turadi
+   * (warm), shuning uchun "Tan narxi" LZT navbatini kutib qolmaydi.
+   */
   private offers = new Map<string, { at: number; items: LztItem[]; total: number }>();
-  private static readonly OFFER_TTL = 60_000;
+  private static readonly OFFER_TTL = 12 * 60_000;
   /** Vitrina filtri uchun: ISO2 -> zaxira bormi (uzoqroq kesh). */
   private stock = new Map<string, { at: number; ok: boolean }>();
   private static readonly STOCK_TTL = 15 * 60_000;
@@ -63,6 +67,21 @@ export class LztAdapter implements ProviderAdapter {
    * Vitrina filtri: davlat bo'yicha zaxira ma'lumi bo'lsa true/false,
    * hali tekshirilmagan bo'lsa null (yashirmaymiz — xaridda tekshiriladi).
    */
+  /**
+   * Berilgan davlatlar narxini fonda yangilaydi (ketma-ket — LZT limiti).
+   * Xato bo'lsa eski kesh qoladi.
+   */
+  async warm(iso2s: string[]): Promise<void> {
+    if (!this.isConfigured()) return;
+    for (const iso of new Set(iso2s.map((x) => x.toUpperCase()).filter(Boolean))) {
+      try {
+        await this.load(iso, true);
+      } catch (e) {
+        this.logger.warn(`warm ${iso}: ${e instanceof Error ? e.message : e}`);
+      }
+    }
+  }
+
   knownStock(iso2: string): boolean | null {
     const s = this.stock.get(iso2.toUpperCase());
     return s && Date.now() - s.at < LztAdapter.STOCK_TTL ? s.ok : null;
@@ -85,7 +104,11 @@ export class LztAdapter implements ProviderAdapter {
     if (!shown.items.length) {
       throw new BadRequestException("Bu yo'nalishda hozircha raqam yo'q. Boshqa davlatni tanlang.");
     }
-    const cap = shown.items[0].priceRub;
+    // Kesh 12 daqiqagacha eski bo'lishi mumkin — kichik tebranishga ruxsat
+    // (+3 ₽ yoki +10%, qaysi katta bo'lsa). Platforma ustamasi (1200 so'm ≈ 8 ₽)
+    // buni bemalol qoplaydi; kattaroq sakrashda xarid rad etiladi.
+    const base = shown.items[0].priceRub;
+    const cap = base + Math.max(3, base * 0.1);
     const fresh = await this.load(iso, true);
     const queue = [...shown.items, ...fresh.items]
       .filter((x, i, a) => x.priceRub <= cap && a.findIndex((y) => y.itemId === x.itemId) === i)

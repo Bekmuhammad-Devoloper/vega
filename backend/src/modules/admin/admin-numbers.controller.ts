@@ -47,8 +47,11 @@ export class AdminNumbersController {
     );
     return {
       available: !!q,
+      // Shu davlat uchun tanlangan manba (arzoni): SPIDER = real SIM,
+      // LZT = tayyor akkaunt (xarid qaytmaydi — risk), HEROSMS = SMS.
+      provider: q?.provider ?? null,
       wholesaleUzs: q?.totalUzs ?? null, // reseller to'laydigan TO'LIQ narx
-      baseUzs: q?.baseUzs ?? null, // sof tan narxi (SPIDER + 1000)
+      baseUzs: q?.baseUzs ?? null, // sof tan narxi (provayder + ustama)
       surchargeUzs: q?.surchargeUzs ?? null, // free sinov ustamasi (0 yoki 1200)
       state: q?.state ?? null, // TRIAL | EXPIRED | PAID
       phase: q?.phase ?? null, // FREE | SURCHARGE | EXPIRED | PAID
