@@ -223,29 +223,18 @@ function OfferProfit({
 }
 
 /**
- * Tan narxi qaysi manbadan: davlat bo'yicha SPIDER yoki LZT (arzoni) tanlanadi.
- *  • SPIDER — real SIM karta, SMS keladi (ishonchli)
- *  • LZT    — tayyor Telegram akkaunti; xarid QAYTARILMAYDI (risk)
+ * Tan narxi qaysi turdagi raqamdan (manba nomi ko'rsatilmaydi):
+ *  • Real — real SIM / SMS raqam
+ *  • Risk — tayyor akkaunt; xarid qaytarilmaydi, bekor qilib bo'lmaydi
  */
 function ProviderNote({ provider }: { provider?: string | null }) {
-  if (provider === 'SPIDER') {
-    return (
-      <p className="mt-0.5 text-xs font-semibold text-[var(--color-success)]">
-        📶 SPIDER — real SIM raqam
-      </p>
-    );
-  }
+  if (!provider) return null;
   if (provider === 'LZT') {
-    return (
-      <p className="mt-0.5 text-xs font-semibold text-amber-700">
-        ⚠️ LZT — tayyor akkaunt (risk: xarid qaytarilmaydi, bekor qilib bo&apos;lmaydi)
-      </p>
-    );
+    return <p className="mt-0.5 text-xs font-semibold text-amber-700">⚠️ Risk</p>;
   }
-  if (provider === 'HEROSMS') {
-    return <p className="mt-0.5 text-xs text-[var(--color-text-muted)]">HeroSMS — virtual raqam</p>;
-  }
-  return null;
+  return (
+    <p className="mt-0.5 text-xs font-semibold text-[var(--color-success)]">✅ Real</p>
+  );
 }
 
 /**
