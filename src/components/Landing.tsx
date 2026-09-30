@@ -2,10 +2,10 @@ import Link from "next/link";
 import { PRODUCTS } from "@/lib/catalog";
 
 const FEATURES = [
-  { icon: "⚡", title: "Tezkor", text: "Raqam bir zumda beriladi, SMS avtomatik ko'rinadi" },
-  { icon: "💸", title: "Arzon", text: "10+ davlat bo'yicha eng qulay narxlar" },
-  { icon: "🛡️", title: "Xavfsiz", text: "SMS kelmasa — pul avtomatik qaytadi" },
-  { icon: "🌍", title: "Ko'p davlat", text: "AQSH, Rossiya, Angliya, O'zbekiston va boshqalar" },
+  { icon: "✈️", title: "Telegram raqam", text: "Tayyor akkaunt, kirish kodi saytda — 60 davlat" },
+  { icon: "⭐", title: "Premium", text: "3/6/12 oy — havola bilan, istalgan akkauntga" },
+  { icon: "🌟", title: "Stars", text: "50 dan 5 000 gacha — istalgan @username'ga" },
+  { icon: "📩", title: "SMS raqamlar", text: "WhatsApp, Instagram, Google va boshqalar uchun" },
 ];
 
 export function Landing() {
@@ -14,17 +14,18 @@ export function Landing() {
       {/* Hero */}
       <section className="text-center">
         <div className="mb-4 inline-block rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-1.5 text-sm text-[var(--muted)]">
-          📱 Virtual raqamlar xizmati
+          ✈️ Telegram raqam · Premium · Stars · SMS
         </div>
         <h1 className="mx-auto max-w-2xl text-4xl font-bold leading-tight sm:text-5xl">
-          SMS tasdiqlash uchun{" "}
+          Telegram va{" "}
           <span className="bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] bg-clip-text text-transparent">
             virtual raqamlar
-          </span>
+          </span>{" "}
+          bir joyda
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-[var(--muted)]">
-          Telegram, WhatsApp, Instagram va boshqa xizmatlar uchun turli
-          davlatlarning vaqtinchalik raqamlarini soniyalar ichida oling.
+          Tayyor Telegram akkauntlari, Premium va Stars, hamda WhatsApp, Instagram
+          va boshqa xizmatlar uchun SMS raqamlarni soniyalar ichida oling.
         </p>
         <div className="mt-8 flex items-center justify-center gap-3">
           <Link href="/login" className="btn btn-primary px-6 py-3">
@@ -49,8 +50,7 @@ export function Landing() {
 
       {/* Services */}
       <section id="services" className="text-center">
-        <h2 className="text-2xl font-bold">Qo&apos;llab-quvvatlanadigan xizmatlar</h2>
-        <p className="mt-1 text-sm text-[var(--muted)]">va yana o&apos;nlab boshqalar</p>
+        <h2 className="text-2xl font-bold">Mahsulotlar</h2>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           {PRODUCTS.map((p) => (
             <span

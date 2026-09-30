@@ -21,15 +21,15 @@ export default async function Home() {
       {isMockMode && (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
           ⚠️ <b>DEMO rejim:</b> haqiqiy raqam sotib olinmaydi. Haqiqiy ishlash
-          uchun <code>.env</code> ichiga <code>FIVESIM_API_KEY</code> qo&apos;shing.
+          uchun <code>.env</code> ichiga <code>LZT_API_KEY</code> qo&apos;shing.
         </div>
       )}
 
       <section>
-        <h1 className="mb-1 text-2xl font-bold">Raqam sotib olish</h1>
+        <h1 className="mb-1 text-2xl font-bold">Sotib olish</h1>
         <p className="mb-5 text-sm text-[var(--muted)]">
-          Xizmat va davlatni tanlang — SMS tasdiqlash uchun vaqtinchalik raqam
-          olasiz.
+          Mahsulotni tanlang: Telegram raqam, Premium, Stars yoki boshqa
+          xizmatlar uchun SMS raqam.
         </p>
         <BuyPanel />
       </section>

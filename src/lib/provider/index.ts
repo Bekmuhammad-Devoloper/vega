@@ -1,12 +1,16 @@
-import { config } from "@/lib/config";
+import { config, isMockMode } from "@/lib/config";
+import { lztProvider } from "./lzt";
+import { istarProvider } from "./istar";
 import { spiderProvider } from "./spider";
 import { heroSmsProvider } from "./herosms";
 import { fiveSimProvider } from "./fivesim";
 import { mockProvider } from "./mock";
-import type { BoughtNumber, OrderState, ProviderPrice, SmsProvider } from "./types";
+import type { BoughtNumber, BuyExtra, OrderState, ProviderPrice, SmsProvider } from "./types";
 
 // Barcha mavjud provayderlar (nom -> adapter). check/cancel routing uchun.
 const REGISTRY: Record<string, SmsProvider> = {
+  lzt: lztProvider,
+  istar: istarProvider,
   spider: spiderProvider,
   hero: heroSmsProvider,
   "5sim": fiveSimProvider,
@@ -14,62 +18,93 @@ const REGISTRY: Record<string, SmsProvider> = {
 };
 
 // "Boshqa" xizmatlar (Telegram'dan tashqari) uchun provayder.
-function otherProvider(): { name: string; p: SmsProvider } {
+// MUHIM: mock (soxta raqam) FAQAT hech qanday provayder kaliti yo'q bo'lganda
+// ishlatiladi. Aks holda (masalan faqat SPIDER kaliti sozlangan bo'lsa) mock'ga
+// tushib, mijozdan REAL pul olib SOXTA raqam berib qo'yish xavfi bor edi.
+function otherProvider(): { name: string; p: SmsProvider } | null {
   if (config.herosmsApiKey) return { name: "hero", p: heroSmsProvider };
   if (config.fivesimApiKey) return { name: "5sim", p: fiveSimProvider };
-  return { name: "mock", p: mockProvider };
+  if (isMockMode) return { name: "mock", p: mockProvider };
+  return null; // kalit bor, lekin bu yo'nalish uchun manba yo'q
 }
 
-// Mahsulotга qarab provayder tanlash.
-// Telegram -> SPIDER (real SIM, ishlaydi), boshqasi -> HeroSMS/5sim.
-function pick(product: string): { name: string; p: SmsProvider } {
-  if (product === "telegram" && config.spiderApiKey) {
-    return { name: "spider", p: spiderProvider };
+// Mahsulotga qarab provayder tanlash:
+//   Telegram raqam + Premium -> LZT Market (SPIDER — Telegram zaxirasi)
+//   Stars                    -> iStar
+//   boshqa xizmatlar         -> HeroSMS (5sim zaxira)
+function pick(product: string): { name: string; p: SmsProvider } | null {
+  if (product === "tg_stars") {
+    return config.istarApiKey ? { name: "istar", p: istarProvider } : null;
+  }
+  if (product === "tg_premium") {
+    return config.lztApiKey ? { name: "lzt", p: lztProvider } : null;
+  }
+  if (product === "telegram") {
+    if (config.lztApiKey) return { name: "lzt", p: lztProvider };
+    if (config.spiderApiKey) return { name: "spider", p: spiderProvider };
   }
   return otherProvider();
 }
 
 // providerId "prefiks:asl_id" ko'rinishida — qaysi provayder bo'lganini biladi.
-function route(providerId: string): { p: SmsProvider; id: string } {
+// Mavjud buyurtmalarni check/cancel qilish uchun REGISTRY'dan to'g'ridan-to'g'ri
+// olamiz (bu yerda mock'ga tushib qolish xavfi yo'q — prefiks aniq).
+function route(providerId: string): { p: SmsProvider; id: string } | null {
   const i = providerId.indexOf(":");
-  if (i < 0) return { p: otherProvider().p, id: providerId }; // eski format
+  if (i < 0) {
+    const o = otherProvider();
+    return o ? { p: o.p, id: providerId } : null; // eski format
+  }
   const name = providerId.slice(0, i);
-  return { p: REGISTRY[name] ?? otherProvider().p, id: providerId.slice(i + 1) };
+  const p = REGISTRY[name];
+  return p ? { p, id: providerId.slice(i + 1) } : null;
 }
 
 // Router provayder — Vega qolgan qismi buni bitta provayder deb ishlatadi.
 export const provider: SmsProvider = {
   name: "router",
 
-  getPrice(product, country): Promise<ProviderPrice | null> {
-    return pick(product).p.getPrice(product, country);
+  async getPrice(product, country): Promise<ProviderPrice | null> {
+    const sel = pick(product);
+    if (!sel) return null; // bu xizmat uchun sozlangan manba yo'q
+    return sel.p.getPrice(product, country);
   },
 
-  async buy(product, country): Promise<BoughtNumber> {
-    const { name, p } = pick(product);
-    const bought = await p.buy(product, country);
+  async buy(product, country, operator, extra?: BuyExtra): Promise<BoughtNumber> {
+    const sel = pick(product);
+    if (!sel) {
+      throw new Error("Bu xizmat hozircha mavjud emas");
+    }
+    // operator — getPrice'da tanlangan operator (5sim narxi shu operatorga tegishli).
+    const bought = await sel.p.buy(product, country, operator, extra);
     // Kelajakda check/cancel to'g'ri provayderga borishi uchun prefiks qo'shamiz.
-    return { ...bought, providerId: `${name}:${bought.providerId}` };
+    return { ...bought, providerId: `${sel.name}:${bought.providerId}` };
   },
 
-  check(providerId): Promise<OrderState> {
-    const { p, id } = route(providerId);
-    return p.check(id);
+  async check(providerId): Promise<OrderState> {
+    const r = route(providerId);
+    if (!r) return { status: "PENDING", sms: [] }; // noma'lum manba — holatni o'zgartirmaymiz
+    return r.p.check(r.id);
   },
 
-  cancel(providerId): Promise<void> {
-    const { p, id } = route(providerId);
-    return p.cancel(id);
+  async cancel(providerId): Promise<void> {
+    const r = route(providerId);
+    if (!r) return;
+    return r.p.cancel(r.id);
   },
 
-  finish(providerId): Promise<void> {
-    const { p, id } = route(providerId);
-    return p.finish(id);
+  async finish(providerId): Promise<void> {
+    const r = route(providerId);
+    if (!r) return;
+    return r.p.finish(r.id);
   },
 
-  balanceRub(): Promise<number> {
+  async balanceRub(): Promise<number> {
     // Asosiy (Telegram) manba balansi.
-    return (config.spiderApiKey ? spiderProvider : otherProvider().p).balanceRub();
+    if (config.lztApiKey) return lztProvider.balanceRub();
+    if (config.spiderApiKey) return spiderProvider.balanceRub();
+    const o = otherProvider();
+    return o ? o.p.balanceRub() : 0;
   },
 };
 

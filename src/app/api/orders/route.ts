@@ -8,6 +8,7 @@ import { limitOr429 } from "@/lib/ratelimit";
 const schema = z.object({
   product: z.string().min(1),
   country: z.string().min(1),
+  username: z.string().max(40).optional(), // Stars oluvchisi
 });
 
 // GET /api/orders — foydalanuvchi buyurtmalari (tarix)
@@ -32,8 +33,8 @@ export async function POST(req: Request) {
     if (limited) return limited;
 
     const user = await requireUser();
-    const { product, country } = schema.parse(await req.json());
-    const order = await buyNumber(user.id, product, country);
+    const { product, country, username } = schema.parse(await req.json());
+    const order = await buyNumber(user.id, product, country, username);
     return ok({ order });
   } catch (e) {
     if (e instanceof z.ZodError) {

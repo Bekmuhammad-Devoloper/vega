@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { formatUzs, formatDate, statusLabel } from "@/lib/format";
-import { productBySlug, countryBySlug } from "@/lib/catalog";
+import { productBySlug, variantLabel, orderKind } from "@/lib/catalog";
 import type { OrderDTO } from "@/lib/types";
 
 const colorMap: Record<string, string> = {
@@ -12,8 +12,8 @@ const colorMap: Record<string, string> = {
 
 export function OrderRow({ order }: { order: OrderDTO }) {
   const product = productBySlug(order.product);
-  const country = countryBySlug(order.country);
-  const status = statusLabel(order.status);
+  const country = variantLabel(order.country);
+  const status = statusLabel(order.status, orderKind(order));
 
   return (
     <Link

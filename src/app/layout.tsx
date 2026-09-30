@@ -9,7 +9,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export const metadata: Metadata = {
   title: "Vega — Virtual raqamlar",
-  description: "Tez, arzon va toza virtual raqamlar — SMS tasdiqlash uchun",
+  description: "Telegram raqamlari, Premium, Stars va SMS raqamlar — tez va arzon",
 };
 
 export default async function RootLayout({

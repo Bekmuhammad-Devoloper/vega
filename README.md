@@ -4,8 +4,13 @@
 tasdiqlash uchun turli davlatlarning **vaqtinchalik virtual raqamlarini** sotib
 oladi va kelgan **SMS kodini** real vaqtda ko'radi.
 
-> ⚙️ Raqamlar ortdagi ulgurji provayder ([5sim.net](https://5sim.net))
-> API'sidan olinadi — biz ustiga ustama (markup) qo'shib sotamiz.
+> ⚙️ Asosiy manba — [LZT Market](https://lzt.market): tayyor Telegram
+> akkauntlari (raqam + kirish kodi API orqali) va Telegram Premium gift
+> havolalari. Narx RUB'da olinadi, ustiga ustama (markup) qo'shib sotamiz.
+> LZT xaridi **qaytarilmaydi** — bu buyurtmalarda bekor qilish/refund yo'q.
+>
+> Manbalar: **Telegram raqam + Premium → LZT**, **Stars → iStar**
+> (`ISTAR_API_KEY`), **WhatsApp/Instagram/Google va boshqalar → HeroSMS**.
 
 ## Nima ishlaydi (to'liq)
 
@@ -42,9 +47,12 @@ cp .env.example .env
 # 3. Baza + jadvallar
 npm run db:migrate
 
-# 4. (ixtiyoriy) test admin yaratish
+# 4. (ixtiyoriy) admin yaratish
 npm run db:seed
-#   -> admin@nomer.uz / admin123  (100 000 so'm balans bilan)
+#   Parol .env dagi SEED_ADMIN_PASSWORD dan olinadi.
+#   Berilmasa — tasodifiy kuchli parol yaratilib KONSOLGA chiqadi (saqlab qo'ying).
+#   Ishlab chiqarishda SEED_ADMIN_PASSWORD majburiy.
+#   Parolni unutsangiz: SEED_ADMIN_PASSWORD="yangi-parol" npm run db:seed
 
 # 5. Dev server
 npm run dev
@@ -74,7 +82,8 @@ bilan balansni to'ldiring → bosh sahifada raqam sotib oling → SMS ~8s da kel
 | ------------------------------ | --------------------------------------------- |
 | `DATABASE_URL`                 | SQLite fayl manzili                           |
 | `AUTH_SECRET`                  | Sessiya JWT kaliti (prod'da tasodifiy qiling) |
-| `FIVESIM_API_KEY`              | 5sim API kaliti. **Bo'sh = DEMO/mock rejim**  |
+| `LZT_API_KEY`                  | LZT Market tokeni (scope: market). Asosiy manba |
+| `FIVESIM_API_KEY` va boshqalar | Eski manbalar — LZT kaliti bo'lsa ishlatilmaydi. Hammasi bo'sh = DEMO |
 | `RUB_TO_UZS` / `MARKUP_PERCENT`| Narx konvertatsiyasi va ustama %              |
 | `DEMO_TOPUP`                   | Demo to'ldirish (**prod'da `false`!**)        |
 | `MIN_TOPUP` / `MAX_TOPUP`      | To'ldirish limitlari (so'm)                   |
@@ -83,7 +92,7 @@ bilan balansni to'ldiring → bosh sahifada raqam sotib oling → SMS ~8s da kel
 
 ### Haqiqiy rejimga o'tish
 
-1. **Raqamlar:** [5sim.net](https://5sim.net) da API key oling → `.env` ga `FIVESIM_API_KEY`.
+1. **Raqamlar:** [lzt.market](https://lzt.market) → Sozlamalar → API'da token oling → `.env` ga `LZT_API_KEY`. LZT balansini to'ldiring.
 2. **To'lov:** Payme/Click merchant oching → `PAYME_*` yoki `CLICK_*` ni to'ldiring.
    > ⚠️ Payme/Click uchun webhook (Merchant API) endpoint'ini yozish kerak —
    > `src/lib/payments.ts` da checkout havolasi tayyor, webhook'ni `src/app/api/`
@@ -103,7 +112,7 @@ src/
 │  └─ page.tsx        # landing (mehmon) / dashboard (user)
 ├─ components/
 └─ lib/
-   ├─ provider/       # SMS-provayder adapterlari (5sim + mock)
+   ├─ provider/       # manba adapterlari (lzt — asosiy; eski: spider/hero/5sim/mock)
    ├─ payments.ts     # to'lov / balans to'ldirish mantiqi
    ├─ orders.ts       # xarid / poll / bekor qilish + hamyon
    ├─ ratelimit.ts    # rate-limiter
@@ -118,7 +127,7 @@ src/
 - [x] Landing + hamyon + countdown
 - [ ] **Payme/Click webhook** (Merchant API) — avtomatik tasdiqlash
 - [ ] Telegram Login orqali kirish
-- [ ] Narxlar/davlatlarni 5sim'dan avtomatik yangilash
+- [x] Narxlar/davlatlarni LZT'dan avtomatik yangilash (10 daqiqalik kesh, `/api/catalog`)
 - [ ] PostgreSQL + prod deploy (Vercel + Neon yoki VPS)
 - [ ] Ko'p instansiya uchun Redis rate-limit
 

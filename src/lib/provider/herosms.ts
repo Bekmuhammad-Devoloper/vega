@@ -151,3 +151,41 @@ export const heroSmsProvider: SmsProvider = {
     return val ? Number(val) : 0;
   },
 };
+
+// ---------------------------------------------------------------------------
+// Narxlar taxtasi — bitta getPrices (faqat service) so'rovi barcha davlatlarni
+// qaytaradi: { [davlat_kodi]: { [service]: { cost, count } } }. 10 daqiqa kesh.
+
+const BOARD_TTL = 10 * 60_000;
+const boardCache = new Map<
+  string,
+  { at: number; rows: { slug: string; costUsd: number | null; count: number }[] }
+>();
+
+export async function heroBoard(
+  product: string
+): Promise<{ slug: string; costUsd: number | null; count: number }[] | null> {
+  const s = SERVICE[product];
+  if (!s || !config.herosmsApiKey) return null;
+  const hit = boardCache.get(product);
+  if (hit && Date.now() - hit.at < BOARD_TTL) return hit.rows;
+
+  let data: Record<string, Record<string, { cost: number; count: number }>>;
+  try {
+    data = JSON.parse(await api("getPrices", { service: s }));
+  } catch (e) {
+    console.warn(`[hero] board ${product}:`, e instanceof Error ? e.message : e);
+    return hit?.rows ?? null;
+  }
+  const rows = COUNTRIES.filter((c) => c.hero).map((c) => {
+    const info = data?.[c.hero]?.[s];
+    const ok = info && (info.count ?? 0) > 0 && Number(info.cost) > 0;
+    return {
+      slug: c.slug,
+      costUsd: ok ? Number(info.cost) : null,
+      count: ok ? Number(info.count) : 0,
+    };
+  });
+  boardCache.set(product, { at: Date.now(), rows });
+  return rows;
+}

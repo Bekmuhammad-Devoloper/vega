@@ -4,7 +4,22 @@ export function formatUzs(amount: number): string {
   return amount.toLocaleString("ru-RU") + " so'm";
 }
 
-export function statusLabel(status: string): { text: string; color: string } {
+/**
+ * Status yorlig'i. `kind` — mahsulot turi: SMS raqam, LZT akkaunt (kod),
+ * yoki yetkaziladigan mahsulot (Premium/Stars).
+ */
+export function statusLabel(
+  status: string,
+  kind: "sms" | "code" | "delivery" = "sms"
+): { text: string; color: string } {
+  if (kind === "delivery") {
+    if (status === "PENDING") return { text: "Yuborilmoqda", color: "amber" };
+    if (status === "RECEIVED") return { text: "Yetkazildi", color: "green" };
+  }
+  if (kind === "code") {
+    if (status === "PENDING") return { text: "Kod kutilmoqda", color: "amber" };
+    if (status === "RECEIVED") return { text: "Kod keldi", color: "green" };
+  }
   switch (status) {
     case "PENDING":
       return { text: "SMS kutilmoqda", color: "amber" };

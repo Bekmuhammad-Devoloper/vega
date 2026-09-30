@@ -1,6 +1,7 @@
 // Client komponentlar uchun buyurtma tipi (JSON serializatsiyadan keyin).
 export type OrderDTO = {
   id: string;
+  provider: string;
   product: string;
   country: string;
   operator: string;
