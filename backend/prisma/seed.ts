@@ -7,6 +7,7 @@
  *   SUPER_SEED_EMAIL=owner@vega.uz SUPER_SEED_PASSWORD=Str0ng! npx ts-node prisma/seed.ts
  */
 import { PrismaClient, PlatformRole, TariffPlan, DigitalKind } from '@prisma/client';
+import { SERVICES, COUNTRIES } from './catalog-data';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -68,59 +69,7 @@ const TARIFFS = [
   },
 ];
 
-// ── Xizmatlar (HeroSMS kodi; telegram = SPIDER real SIM) ──
-const SERVICES = [
-  { slug: 'telegram', nameUz: 'Telegram', nameRu: 'Telegram', emoji: '💙', heroCode: 'tg', telegramOnly: true, position: 1 },
-  { slug: 'whatsapp', nameUz: 'WhatsApp', nameRu: 'WhatsApp', emoji: '💚', heroCode: 'wa', telegramOnly: false, position: 2 },
-  { slug: 'instagram', nameUz: 'Instagram', nameRu: 'Instagram', emoji: '📸', heroCode: 'ig', telegramOnly: false, position: 3 },
-  { slug: 'google', nameUz: 'Google / Gmail', nameRu: 'Google / Gmail', emoji: '✉️', heroCode: 'go', telegramOnly: false, position: 4 },
-  { slug: 'facebook', nameUz: 'Facebook', nameRu: 'Facebook', emoji: '📘', heroCode: 'fb', telegramOnly: false, position: 5 },
-  { slug: 'tiktok', nameUz: 'TikTok', nameRu: 'TikTok', emoji: '🎶', heroCode: 'lf', telegramOnly: false, position: 6 },
-  { slug: 'twitter', nameUz: 'Twitter / X', nameRu: 'Twitter / X', emoji: '✖️', heroCode: 'tw', telegramOnly: false, position: 7 },
-  { slug: 'viber', nameUz: 'Viber', nameRu: 'Viber', emoji: '💜', heroCode: 'vi', telegramOnly: false, position: 8 },
-  { slug: 'uber', nameUz: 'Uber', nameRu: 'Uber', emoji: '🚗', heroCode: 'ub', telegramOnly: false, position: 9 },
-];
 
-// ── Davlatlar (iso2 = SPIDER; heroCode = HeroSMS) ──
-const COUNTRIES = [
-  { slug: 'uzbekistan', nameUz: 'O’zbekiston', nameRu: 'Узбекистан', flag: '🇺🇿', iso2: 'UZ', heroCode: '40' },
-  { slug: 'usa', nameUz: 'AQSH', nameRu: 'США', flag: '🇺🇸', iso2: 'US', heroCode: '187' },
-  { slug: 'kazakhstan', nameUz: 'Qozog’iston', nameRu: 'Казахстан', flag: '🇰🇿', iso2: 'KZ', heroCode: '2' },
-  { slug: 'ukraine', nameUz: 'Ukraina', nameRu: 'Украина', flag: '🇺🇦', iso2: 'UA', heroCode: '1' },
-  { slug: 'uk', nameUz: 'Angliya', nameRu: 'Англия', flag: '🇬🇧', iso2: 'GB', heroCode: '16' },
-  { slug: 'india', nameUz: 'Hindiston', nameRu: 'Индия', flag: '🇮🇳', iso2: 'IN', heroCode: '22' },
-  { slug: 'indonesia', nameUz: 'Indoneziya', nameRu: 'Индонезия', flag: '🇮🇩', iso2: 'ID', heroCode: '6' },
-  { slug: 'philippines', nameUz: 'Filippin', nameRu: 'Филиппины', flag: '🇵🇭', iso2: 'PH', heroCode: '4' },
-  { slug: 'vietnam', nameUz: 'Vetnam', nameRu: 'Вьетнам', flag: '🇻🇳', iso2: 'VN', heroCode: '10' },
-  { slug: 'pakistan', nameUz: 'Pokiston', nameRu: 'Пакистан', flag: '🇵🇰', iso2: 'PK', heroCode: '66' },
-  { slug: 'bangladesh', nameUz: 'Bangladesh', nameRu: 'Бангладеш', flag: '🇧🇩', iso2: 'BD', heroCode: '60' },
-  { slug: 'thailand', nameUz: 'Tailand', nameRu: 'Таиланд', flag: '🇹🇭', iso2: 'TH', heroCode: '52' },
-  { slug: 'malaysia', nameUz: 'Malayziya', nameRu: 'Малайзия', flag: '🇲🇾', iso2: 'MY', heroCode: '7' },
-  { slug: 'myanmar', nameUz: 'Myanma', nameRu: 'Мьянма', flag: '🇲🇲', iso2: 'MM', heroCode: '5' },
-  { slug: 'china', nameUz: 'Xitoy', nameRu: 'Китай', flag: '🇨🇳', iso2: 'CN', heroCode: '3' },
-  { slug: 'turkey', nameUz: 'Turkiya', nameRu: 'Турция', flag: '🇹🇷', iso2: 'TR', heroCode: '62' },
-  { slug: 'saudi', nameUz: 'Saudiya', nameRu: 'Саудовская Аравия', flag: '🇸🇦', iso2: 'SA', heroCode: '53' },
-  { slug: 'oman', nameUz: 'Ummon', nameRu: 'Оман', flag: '🇴🇲', iso2: 'OM', heroCode: '107' },
-  { slug: 'egypt', nameUz: 'Misr', nameRu: 'Египет', flag: '🇪🇬', iso2: 'EG', heroCode: '21' },
-  { slug: 'morocco', nameUz: 'Marokko', nameRu: 'Марокко', flag: '🇲🇦', iso2: 'MA', heroCode: '37' },
-  { slug: 'nigeria', nameUz: 'Nigeriya', nameRu: 'Нигерия', flag: '🇳🇬', iso2: 'NG', heroCode: '19' },
-  { slug: 'kenya', nameUz: 'Keniya', nameRu: 'Кения', flag: '🇰🇪', iso2: 'KE', heroCode: '8' },
-  { slug: 'ghana', nameUz: 'Gana', nameRu: 'Гана', flag: '🇬🇭', iso2: 'GH', heroCode: '38' },
-  { slug: 'south_africa', nameUz: 'Janubiy Afrika', nameRu: 'ЮАР', flag: '🇿🇦', iso2: 'ZA', heroCode: '31' },
-  { slug: 'brazil', nameUz: 'Braziliya', nameRu: 'Бразилия', flag: '🇧🇷', iso2: 'BR', heroCode: '73' },
-  { slug: 'argentina', nameUz: 'Argentina', nameRu: 'Аргентина', flag: '🇦🇷', iso2: 'AR', heroCode: '39' },
-  { slug: 'chile', nameUz: 'Chili', nameRu: 'Чили', flag: '🇨🇱', iso2: 'CL', heroCode: '151' },
-  { slug: 'colombia', nameUz: 'Kolumbiya', nameRu: 'Колумбия', flag: '🇨🇴', iso2: 'CO', heroCode: '33' },
-  { slug: 'mexico', nameUz: 'Meksika', nameRu: 'Мексика', flag: '🇲🇽', iso2: 'MX', heroCode: '54' },
-  { slug: 'canada', nameUz: 'Kanada', nameRu: 'Канада', flag: '🇨🇦', iso2: 'CA', heroCode: '36' },
-  { slug: 'germany', nameUz: 'Germaniya', nameRu: 'Германия', flag: '🇩🇪', iso2: 'DE', heroCode: '43' },
-  { slug: 'france', nameUz: 'Fransiya', nameRu: 'Франция', flag: '🇫🇷', iso2: 'FR', heroCode: '78' },
-  { slug: 'spain', nameUz: 'Ispaniya', nameRu: 'Испания', flag: '🇪🇸', iso2: 'ES', heroCode: '56' },
-  { slug: 'italy', nameUz: 'Italiya', nameRu: 'Италия', flag: '🇮🇹', iso2: 'IT', heroCode: '86' },
-  { slug: 'netherlands', nameUz: 'Niderlandiya', nameRu: 'Нидерланды', flag: '🇳🇱', iso2: 'NL', heroCode: '48' },
-  { slug: 'poland', nameUz: 'Polsha', nameRu: 'Польша', flag: '🇵🇱', iso2: 'PL', heroCode: '15' },
-  { slug: 'romania', nameUz: 'Ruminiya', nameRu: 'Румыния', flag: '🇷🇴', iso2: 'RO', heroCode: '32' },
-];
 
 // ── Stars paketlari + Premium rejalari (dev panel narxlarni tahrirlaydi) ──
 const DIGITAL = [

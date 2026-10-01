@@ -158,17 +158,26 @@ export class LztProvider {
   /**
    * Berilgan davlatning sotib olsa bo'ladigan Telegram akkauntlari
    * (arzondan qimmatga) + umumiy zaxira soni.
-   * Filtrlar: spam-blok yo'q, 2FA paroli yo'q (mijoz faqat kod bilan
-   * kiradi), faqat qonuniy kelib chiqish (LZT_SAFE_ORIGINS).
+   *
+   * `spam` — ikki ALOHIDA mahsulot qatlami:
+   *   false (spamsiz/toza) — spam-bloki YO'Q akkauntlar (qimmatroq);
+   *   true  (spamli)       — spam-blokli: kirish/kanal/guruh/bot ishlaydi,
+   *                          notanishlarga birinchi yozib bo'lmaydi.
+   *                          ANCHA ARZON — vitrinada alohida narxda sotiladi.
+   * Qolgan filtrlar ikkalasida bir xil: 2FA paroli yo'q (mijoz faqat kod
+   * bilan kiradi), faqat qonuniy kelib chiqish (LZT_SAFE_ORIGINS).
    */
-  async searchTelegram(iso2: string): Promise<{ items: LztItem[]; total: number }> {
+  async searchTelegram(
+    iso2: string,
+    spam = false,
+  ): Promise<{ items: LztItem[]; total: number }> {
     const res = await this.request<{
       items?: Record<string, unknown>[];
       totalItems?: number;
     }>('GET', '/telegram', {
       'country[]': [iso2.toUpperCase()],
       'origin[]': LZT_SAFE_ORIGINS,
-      spam: 'no',
+      spam: spam ? 'yes' : 'no',
       password: 'no',
       order_by: 'price_to_up',
     });

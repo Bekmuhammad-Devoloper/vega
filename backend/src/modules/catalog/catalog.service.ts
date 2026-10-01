@@ -58,12 +58,21 @@ export class CatalogService implements OnModuleInit {
     try {
       const rows = await this.prisma.resellerOffer.findMany({
         where: { isActive: true, service: { telegramOnly: true } },
-        select: { country: { select: { iso2: true } } },
-        distinct: ['countryId'],
+        select: {
+          country: { select: { iso2: true } },
+          service: { select: { slug: true } },
+        },
+        distinct: ['countryId', 'serviceId'],
       });
-      const isos = rows.map((r) => r.country.iso2).filter((x): x is string => !!x);
-      await this.providers.warmLzt(isos);
-      this.logger.log(`LZT narxlari yangilandi: ${isos.length} davlat`);
+      // Spamli va spamsiz alohida bozor qatlami — juftlik sifatida isitiladi.
+      const pairs = rows
+        .filter((r) => !!r.country.iso2)
+        .map((r) => ({
+          iso2: r.country.iso2 as string,
+          spam: r.service.slug === 'telegram_spam',
+        }));
+      await this.providers.warmLzt(pairs);
+      this.logger.log(`LZT narxlari yangilandi: ${pairs.length} yo'nalish`);
     } catch (e) {
       this.logger.warn(`LZT warm: ${String(e)}`);
     } finally {
@@ -175,7 +184,12 @@ export class CatalogService implements OnModuleInit {
     // Nomzodlar. Telegram: SPIDER (real SIM) va LZT (tayyor akkaunt) —
     // davlat bo'yicha QAYSI ARZON bo'lsa o'sha. Boshqa xizmatlar: HeroSMS.
     let kinds: ProviderKind[];
-    if (service.telegramOnly) {
+    if (service.slug === 'telegram_spam') {
+      // Spam-blokli qatlam FAQAT LZT'da bor — SPIDER real SIM beradi,
+      // unda "spamli arzon" tushunchasi yo'q.
+      if (!this.providers.isConfigured(ProviderKind.LZT)) return null;
+      kinds = [ProviderKind.LZT];
+    } else if (service.telegramOnly) {
       kinds = [ProviderKind.SPIDER, ProviderKind.LZT].filter((k) =>
         this.providers.isConfigured(k),
       );

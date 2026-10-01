@@ -37,14 +37,15 @@ export class ProvidersService {
     ]);
   }
 
-  /** LZT narx keshini fonda yangilash (katalog cron'i chaqiradi). */
-  warmLzt(iso2s: string[]): Promise<void> {
-    return this.lzt.warm(iso2s);
+  /** LZT narx keshini fonda yangilash (katalog cron'i chaqiradi).
+   * Har juftlik (davlat, spamli?) — spamli va spamsiz alohida bozor qatlami. */
+  warmLzt(pairs: Array<{ iso2: string; spam: boolean }>): Promise<void> {
+    return this.lzt.warm(pairs);
   }
 
   /** LZT zaxirasi ma'lum bo'lsa true/false, hali tekshirilmagan bo'lsa null. */
-  lztKnownStock(iso2: string): boolean | null {
-    return this.lzt.knownStock(iso2);
+  lztKnownStock(iso2: string, spam = false): boolean | null {
+    return this.lzt.knownStock(iso2, spam);
   }
 
   /** SPIDER (Telegram) qo'llaydigan davlat ISO2 to'plami. */

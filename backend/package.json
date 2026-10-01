@@ -16,6 +16,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "db:seed": "ts-node prisma/seed.ts",
+    "db:sync-catalog": "ts-node prisma/sync-catalog.ts",
     "db:seed:supermarket": "ts-node prisma/reseed-products.ts",
     "db:seed:super": "ts-node prisma/seed-super.ts",
     "digital:sync": "ts-node prisma/sync-digital-prices.ts"

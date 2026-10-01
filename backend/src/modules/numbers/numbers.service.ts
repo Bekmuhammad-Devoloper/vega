@@ -177,11 +177,16 @@ export class NumbersService {
     ]);
 
     return offers.filter((o) => {
+      const spamTier = o.service.slug === 'telegram_spam';
       // LZT zaxirasi davlat bo'yicha keshdan; hali tekshirilmagan bo'lsa
       // YASHIRMAYMIZ (narx/xarid paytida baribir tekshiriladi).
+      // Spamli va spamsiz zaxirasi ALOHIDA tekshiriladi — spamsiz tugab,
+      // spamli qolgan bo'lishi (yoki aksincha) oddiy hol.
       if (o.service.telegramOnly && lztOn) {
-        if (this.providers.lztKnownStock(o.country.iso2 ?? '') ?? true) return true;
+        if (this.providers.lztKnownStock(o.country.iso2 ?? '', spamTier) ?? true) return true;
       }
+      // Spam qatlami FAQAT LZT'da bor — SPIDER zaxirasiga qarab bo'lmaydi.
+      if (spamTier) return false;
       if (o.service.telegramOnly) {
         // Provayder javob bermadi — yo'nalishni YASHIRMAYMIZ (xarid paytida
         // baribir tekshiriladi). Vitrina bo'sh qolgandan ko'ra shu yaxshi.
