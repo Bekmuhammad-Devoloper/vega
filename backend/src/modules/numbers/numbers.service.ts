@@ -150,9 +150,28 @@ export class NumbersService {
    * so'rovlarga olib kelmaydi.
    */
   async storefront(tenantId: string) {
+    // Faqat vitrinaga kerakli maydonlar — 300 taklifda javob hajmi ~2 baravar kichrayadi.
     const offers = await this.prisma.resellerOffer.findMany({
       where: { tenantId, isActive: true },
-      include: { service: true, country: true },
+      select: {
+        id: true,
+        serviceId: true,
+        countryId: true,
+        retailPrice: true,
+        isActive: true,
+        service: {
+          select: {
+            id: true, slug: true, nameUz: true, nameRu: true, emoji: true,
+            heroCode: true, telegramOnly: true, isActive: true, position: true,
+          },
+        },
+        country: {
+          select: {
+            id: true, slug: true, nameUz: true, nameRu: true, flag: true,
+            iso2: true, heroCode: true, isActive: true, position: true,
+          },
+        },
+      },
       orderBy: [{ service: { position: 'asc' } }, { country: { position: 'asc' } }],
     });
     if (offers.length === 0) return offers;

@@ -4,6 +4,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { Logger } from 'nestjs-pino';
 import helmet from 'helmet';
+import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import { resolve, isAbsolute } from 'path';
 import { AppModule } from './app.module';
@@ -73,6 +74,8 @@ async function bootstrap(): Promise<void> {
     ],
   });
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+  // nginx (umumiy server) JSON'ni siqmaydi — do'kon vitrinasi siqilmasa ~240 KB.
+  app.use(compression({ threshold: 1024 }));
   app.use(cookieParser());
 
   app.setGlobalPrefix('api', {

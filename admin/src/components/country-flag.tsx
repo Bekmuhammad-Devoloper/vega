@@ -9,6 +9,8 @@ export function CountryFlag({ iso2, className }: { iso2?: string | null; classNa
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={`/flags/${code}.png`}
+      loading="lazy"
+      decoding="async"
       alt=""
       width={20}
       height={15}
