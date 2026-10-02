@@ -238,10 +238,20 @@ export class LztProvider {
     );
     const item = (res.item ?? {}) as Record<string, unknown>;
     this.logger.log(`LZT xarid: item ${itemId}, ${priceRub} rub`);
+    let phone = LztProvider.findPhone(item);
+    if (!item.telegram_phone) {
+      // fast-buy javobi to'liq bo'lmasa — haqiqiy raqamni e'lonning o'zidan olamiz.
+      try {
+        const full = await this.request<{ item?: Record<string, unknown> }>('GET', `/${itemId}`);
+        phone = LztProvider.findPhone((full.item ?? full) as Record<string, unknown>) ?? phone;
+      } catch (e) {
+        this.logger.warn(`LZT item ${itemId} raqamini olib bo'lmadi: ${String(e)}`);
+      }
+    }
     return {
       itemId,
       priceRub,
-      phone: LztProvider.findPhone(item),
+      phone,
       giftLink: LztProvider.findGiftLink(item),
     };
   }
@@ -286,10 +296,13 @@ export class LztProvider {
   }
 
   static findPhone(item: Record<string, unknown>): string | null {
+    // `telegram_phone` — LZT'ning tekshirilgan raqami. loginData.login esa ko'pincha
+    // shifrlangan hex satr: undagi tasodifiy raqamlar telefon emas, shuning uchun
+    // u faqat zaxira va son atrofida harf/raqam bo'lmasligi shart.
     const ld = (item.loginData ?? {}) as Record<string, unknown>;
-    for (const c of [ld.login, item.login, item.telegram_phone, ld.raw]) {
-      const m = String(c ?? '').match(/\+?\d{9,15}/);
-      if (m) return m[0].startsWith('+') ? m[0] : '+' + m[0];
+    for (const c of [item.telegram_phone, ld.login, item.login, ld.raw]) {
+      const m = String(c ?? '').match(/(?<![0-9A-Za-z])\+?(\d{10,15})(?![0-9A-Za-z])/);
+      if (m) return '+' + m[1];
     }
     return null;
   }
