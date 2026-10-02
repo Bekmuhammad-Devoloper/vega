@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, Tags, CheckCircle2, Pencil } from 'lucide-react';
+import { Plus, Trash2, Tags, CheckCircle2, Pencil, Sparkles } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { Field, Input } from '@/components/ui/input';
 import { PickerSelect } from '@/components/picker-select';
 import { CountryFlag } from '@/components/country-flag';
 import { ServiceIcon } from '@/components/service-icon';
+import { BulkMarkupSheet } from '@/components/offers/bulk-markup-sheet';
 import {
   apiCatalogCountries,
   apiCatalogPrice,
@@ -43,6 +44,7 @@ function money(v: Money | null | undefined): string {
 export default function OffersPage() {
   const qc = useQueryClient();
   const [adding, setAdding] = useState(false);
+  const [bulk, setBulk] = useState(false);
   const [editing, setEditing] = useState<AdminOffer | null>(null);
 
   const { data: offers, isLoading } = useQuery({ queryKey: ['offers'], queryFn: apiListOffers });
@@ -73,9 +75,14 @@ export default function OffersPage() {
         title="Narxlar"
         description="Qaysi xizmat va davlatni sotasiz — retail narxni belgilang"
         rightSlot={
-          <Button size="sm" onClick={() => setAdding(true)}>
-            <Plus size={16} /> Yangi
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" onClick={() => setBulk(true)}>
+              <Sparkles size={15} /> Ustama
+            </Button>
+            <Button size="sm" onClick={() => setAdding(true)}>
+              <Plus size={16} /> Yangi
+            </Button>
+          </div>
         }
       />
 
@@ -133,11 +140,19 @@ export default function OffersPage() {
                     <p className="text-base font-extrabold leading-tight text-[var(--color-primary)] tabular-nums">
                       {money(o.retailPrice)}
                     </p>
-                    <OfferProfit
-                      serviceId={o.serviceId}
-                      countryId={o.countryId}
-                      retail={Number(o.retailPrice)}
-                    />
+                    {o.markupUzs != null ? (
+                      // Avto-narx: foyda ustamaning o'zi — har kartochka uchun
+                      // alohida narx so'rovi kerak emas (200+ taklifda muhim).
+                      <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-[var(--color-success)] ring-1 ring-inset ring-emerald-200">
+                        <Sparkles size={10} /> Avto +{formatMoney(o.markupUzs)}
+                      </span>
+                    ) : (
+                      <OfferProfit
+                        serviceId={o.serviceId}
+                        countryId={o.countryId}
+                        retail={Number(o.retailPrice)}
+                      />
+                    )}
                   </div>
                 </div>
 
@@ -169,6 +184,14 @@ export default function OffersPage() {
           countries={countries ?? []}
           offers={offers ?? []}
           onClose={() => setAdding(false)}
+        />
+      )}
+
+      {bulk && (
+        <BulkMarkupSheet
+          services={services ?? []}
+          offers={offers ?? []}
+          onClose={() => setBulk(false)}
         />
       )}
 
@@ -346,6 +369,16 @@ function EditOfferSheet({
   return (
     <Sheet open onClose={onClose} title="Narxni tahrirlash">
       <div className="space-y-4">
+        {offer.markupUzs != null && (
+          <div className="flex gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-800 ring-1 ring-inset ring-amber-200">
+            <Sparkles size={14} className="mt-0.5 shrink-0" />
+            <span>
+              Bu taklif <b>avto-narxda</b> (tan narxi +{formatMoney(offer.markupUzs)}). Narxni
+              shu yerda saqlasangiz, u <b>qat&apos;iy narxga</b> o&apos;tadi va endi o&apos;zi
+              yangilanmaydi.
+            </span>
+          </div>
+        )}
         {/* Xizmat + davlat (o'zgarmas) */}
         <div className="flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
           <div className="h-10 w-10 shrink-0 grid place-items-center rounded-lg bg-[var(--color-surface)] ring-1 ring-[var(--color-border)]">

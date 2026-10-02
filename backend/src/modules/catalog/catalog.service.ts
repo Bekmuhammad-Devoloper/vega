@@ -49,6 +49,62 @@ export class CatalogService implements OnModuleInit {
     setTimeout(() => void this.warmLzt(), 10_000);
   }
 
+  // ── AVTO-NARX takliflari (ResellerOffer.markupUzs) ──
+
+  /** Avto-narx: joriy tan narxi + sotuvchi ustamasi, 100 so'mga YUQORIGA yaxlit. */
+  static autoRetail(totalUzs: number, markupUzs: number): number {
+    return Math.ceil((totalUzs + markupUzs) / 100) * 100;
+  }
+
+  private refreshing = false;
+
+  /**
+   * Avto-narxli takliflarning sotuv narxini joriy tan narxiga moslaydi.
+   * LZT keshi har 10 daqiqaning boshida isitiladi — bu cron 5 daqiqa keyin
+   * yuradi, shu bois qimmat tashqi so'rovlar deyarli bo'lmaydi.
+   * Narx topilmasa eski narx qoladi (vitrina zaxira filtri baribir yashiradi).
+   */
+  @Cron('0 5-59/10 * * * *')
+  async refreshAutoOffers(): Promise<void> {
+    if (this.refreshing) return;
+    this.refreshing = true;
+    try {
+      const offers = await this.prisma.resellerOffer.findMany({
+        where: { markupUzs: { not: null } },
+        select: {
+          id: true,
+          tenantId: true,
+          serviceId: true,
+          countryId: true,
+          markupUzs: true,
+          retailPrice: true,
+        },
+      });
+      let changed = 0;
+      for (const o of offers) {
+        try {
+          const q = await this.quoteFor(o.tenantId, o.serviceId, o.countryId);
+          if (!q || o.markupUzs == null) continue;
+          const next = CatalogService.autoRetail(q.totalUzs, o.markupUzs);
+          if (next !== Number(o.retailPrice)) {
+            await this.prisma.resellerOffer.update({
+              where: { id: o.id },
+              data: { retailPrice: next },
+            });
+            changed++;
+          }
+        } catch (e) {
+          this.logger.warn(`avto-narx ${o.id}: ${String(e)}`);
+        }
+      }
+      if (offers.length) {
+        this.logger.log(`Avto-narx: ${offers.length} taklif tekshirildi, ${changed} ta yangilandi`);
+      }
+    } finally {
+      this.refreshing = false;
+    }
+  }
+
   private warming = false;
 
   @Cron('0 */10 * * * *')

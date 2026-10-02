@@ -134,6 +134,12 @@ model ResellerOffer {
   countryId   String
   country     Country  @relation(fields: [countryId], references: [id], onDelete: Cascade)
   retailPrice Decimal  @db.Decimal(12, 2) // mijozga narx (UZS)
+  // AVTO-NARX rejimi: to'ldirilgan bo'lsa sotuv narxi = JORIY tan narxi +
+  // shu ustama (so'm). Tan narxi (LZT/SPIDER) o'zgarsa retailPrice cron
+  // orqali o'zi yangilanadi, xaridda esa jonli narx olinadi — sotuvchi
+  // hech qachon tan narxidan pastga sotib qo'ymaydi. null = qat'iy narx
+  // (sotuvchi qo'lda kiritgan retailPrice o'zgarmaydi).
+  markupUzs   Int?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

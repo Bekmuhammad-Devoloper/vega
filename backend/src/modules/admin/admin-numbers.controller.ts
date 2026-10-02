@@ -9,7 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 import { AdminRole, type Admin } from '@prisma/client';
 import { AdminJwtGuard } from '../admin-auth/admin-jwt.guard';
 import { CurrentAdmin, Roles, RolesGuard } from '../admin-auth/roles.guard';
@@ -22,6 +22,13 @@ class UpsertOfferDto {
   @IsString() countryId!: string;
   @Type(() => Number) @IsNumber() @Min(0) retailPrice!: number;
   @IsOptional() @IsBoolean() isActive?: boolean;
+}
+
+class BulkMarkupDto {
+  @IsString() serviceId!: string;
+  @IsOptional() @IsArray() @ArrayMaxSize(300) @IsString({ each: true }) countryIds?: string[];
+  @IsOptional() @IsBoolean() all?: boolean;
+  @Type(() => Number) @IsInt() @Min(0) @Max(10_000_000) markupUzs!: number;
 }
 
 @Controller('admin')
@@ -89,6 +96,19 @@ export class AdminNumbersController {
   @Roles(AdminRole.SUPERADMIN, AdminRole.ADMIN, AdminRole.MANAGER)
   upsert(@Body() dto: UpsertOfferDto, @CurrentAdmin() admin: Admin) {
     return this.svc.upsertOffer(admin.tenantId as string, dto);
+  }
+
+  /** Ommaviy ustama: tanlangan/barcha davlatlarga sotuv narxi = tan narxi + ustama. */
+  @Post('offers/bulk-markup')
+  @Roles(AdminRole.SUPERADMIN, AdminRole.ADMIN, AdminRole.MANAGER)
+  bulkMarkup(@Body() dto: BulkMarkupDto, @CurrentAdmin() admin: Admin) {
+    return this.svc.startBulkMarkup(admin.tenantId as string, dto);
+  }
+
+  @Get('offers/bulk-markup/status')
+  @Roles(...VIEW_ROLES)
+  bulkMarkupStatus(@CurrentAdmin() admin: Admin) {
+    return this.svc.bulkMarkupStatus(admin.tenantId as string);
   }
 
   @Delete('offers/:id')

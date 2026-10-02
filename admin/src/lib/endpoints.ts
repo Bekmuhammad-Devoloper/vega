@@ -3,6 +3,7 @@ import type {
   AdminDto,
   AdminNumberOrder,
   AdminOffer,
+  BulkMarkupStatus,
   AdminUserDetail,
   AdminUserListItem,
   BannerView,
@@ -460,6 +461,15 @@ export const apiCatalogPrice = (serviceId: string, countryId: string) =>
 
 // ───── Takliflar (reseller: xizmat × davlat + retail narx) ─────
 export const apiListOffers = () => api<AdminOffer[]>('/admin/offers');
+/** Ommaviy ustama: tanlangan (yoki barcha) davlatlarga sotuv narxi = tan narxi + ustama. Fonda ishlaydi. */
+export const apiBulkMarkup = (body: {
+  serviceId: string;
+  countryIds?: string[];
+  all?: boolean;
+  markupUzs: number;
+}) => api<BulkMarkupStatus>('/admin/offers/bulk-markup', { method: 'POST', body });
+export const apiBulkMarkupStatus = () =>
+  api<BulkMarkupStatus>('/admin/offers/bulk-markup/status');
 export const apiCreateOffer = (body: { serviceId: string; countryId: string; retailPrice: number }) =>
   api<AdminOffer>('/admin/offers', { method: 'POST', body });
 export const apiDeleteOffer = (id: string) =>

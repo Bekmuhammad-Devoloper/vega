@@ -250,7 +250,13 @@ export class NumbersService {
     const quote = await this.catalog.quoteFor(tenantId, serviceId, countryId);
     if (!quote) throw new BadRequestException("Bu yo'nalish hozircha mavjud emas");
 
-    const retailUzs = Number(offer.retailPrice);
+    // Avto-narxli taklif: mijozdan JONLI narx olinadi (tan narxi + sotuvchi
+    // ustamasi). Saqlangan retailPrice 10 daqiqagacha eskirgan bo'lishi
+    // mumkin — tan narxi oshgan bo'lsa sotuvchi zarariga sotib qo'yardi.
+    const retailUzs =
+      offer.markupUzs != null
+        ? CatalogService.autoRetail(quote.totalUzs, offer.markupUzs)
+        : Number(offer.retailPrice);
     const wholesaleUzs = quote.totalUzs; // tan narxi + ustama (reseller shu miqdorni to'laydi)
 
     const user = await this.prisma.user.findUnique({ where: { id: userId } });

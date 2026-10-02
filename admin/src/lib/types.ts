@@ -64,8 +64,21 @@ export interface AdminOffer {
   retailPrice: Money;
   /** Ulgurji narx (agar backend qaytarsa) — foyda hisobi uchun. */
   wholesalePrice?: Money;
+  /** Avto-narx: to'ldirilgan bo'lsa sotuv narxi = joriy tan narxi + shu ustama. */
+  markupUzs?: number | null;
   isActive: boolean;
   createdAt?: string;
+}
+
+export interface BulkMarkupStatus {
+  running: boolean;
+  total: number;
+  done: number;
+  priced: number;
+  skipped: number;
+  markupUzs: number;
+  serviceId: string;
+  finishedAt: string | null;
 }
 
 // ───── Raqam buyurtmalari (mijozlar sotib olgan) ─────
