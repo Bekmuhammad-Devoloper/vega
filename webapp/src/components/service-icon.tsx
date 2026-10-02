@@ -1,5 +1,5 @@
 const SI: Record<string, string> = {
-  telegram: 'telegram', whatsapp: 'whatsapp', instagram: 'instagram',
+  telegram: 'telegram', telegram_spam: 'telegram-dark', whatsapp: 'whatsapp', instagram: 'instagram',
   google: 'gmail', facebook: 'facebook', tiktok: 'tiktok',
   twitter: 'x', viber: 'viber', uber: 'uber',
 };

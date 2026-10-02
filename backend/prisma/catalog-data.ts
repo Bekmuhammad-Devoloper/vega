@@ -16,7 +16,7 @@ export const SERVICES = [
   // Spam-blokli Telegram akkauntlari — ANCHA ARZON. Mijoz kirisha oladi,
   // lekin notanishlarga birinchi bo'lib yoza olmaydi (kanal/guruh/bot OK).
   // Narxlashda ham, vitrinada ham toza (spamsiz) Telegram'dan alohida turadi.
-  { slug: 'telegram_spam', nameUz: 'Telegram (spamli — arzon)', nameRu: 'Telegram (спам-блок)', emoji: '💤', heroCode: null, telegramOnly: true, position: 2 },
+  { slug: 'telegram_spam', nameUz: 'Telegram (spam)', nameRu: 'Telegram (спам)', emoji: '💤', heroCode: null, telegramOnly: true, position: 2 },
   { slug: 'whatsapp', nameUz: 'WhatsApp', nameRu: 'WhatsApp', emoji: '💚', heroCode: 'wa', telegramOnly: false, position: 3 },
   { slug: 'instagram', nameUz: 'Instagram', nameRu: 'Instagram', emoji: '📸', heroCode: 'ig', telegramOnly: false, position: 4 },
   { slug: 'google', nameUz: 'Google / Gmail', nameRu: 'Google / Gmail', emoji: '✉️', heroCode: 'go', telegramOnly: false, position: 5 },
