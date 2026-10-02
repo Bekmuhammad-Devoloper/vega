@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, Search, Loader2, Zap, ShieldCheck, Clock } f
 import { AppHeader } from '@/components/shop/app-header';
 import { DigitalSections } from '@/components/shop/digital-sections';
 import { CryptoSection } from '@/components/shop/crypto-section';
+import { BuySheet } from '@/components/shop/buy-sheet';
 import { CountryFlag } from '@/components/country-flag';
 import { ServiceIcon } from '@/components/service-icon';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -74,9 +75,10 @@ export default function HomePage() {
     : [];
   const cheapestId = countryOffers[0]?.id ?? null;
 
+  const [confirmOffer, setConfirmOffer] = useState<StorefrontOffer | null>(null);
   const buy = useMutation({
-    mutationFn: (offer: StorefrontOffer) =>
-      apiBuyNumber({ serviceId: offer.serviceId, countryId: offer.countryId }),
+    mutationFn: ({ offer, promoCode }: { offer: StorefrontOffer; promoCode?: string }) =>
+      apiBuyNumber({ serviceId: offer.serviceId, countryId: offer.countryId, promoCode }),
     onSuccess: (order) => {
       haptic('success');
       qc.invalidateQueries({ queryKey: ['me'] });
@@ -85,6 +87,7 @@ export default function HomePage() {
     },
     onError: (err: Error) => {
       haptic('error');
+      setConfirmOffer(null);
       toast.error(err.message);
     },
   });
@@ -341,7 +344,10 @@ export default function HomePage() {
                     </p>
                   </div>
                   <button
-                    onClick={() => buy.mutate(o)}
+                    onClick={() => {
+                      haptic('light');
+                      setConfirmOffer(o);
+                    }}
                     // isSuccess ham: onSuccess'dan keyin router.push tugaguncha
                     // isPending=false bo'lib qoladi — o'sha oynada ikkinchi
                     // bosish IKKINCHI buyurtma yaratardi (ikki marta pul).
@@ -350,7 +356,7 @@ export default function HomePage() {
                       'h-10 px-4 rounded-xl bg-[var(--color-primary)] text-white text-sm font-semibold inline-flex items-center gap-1.5 shrink-0 active:opacity-90 disabled:opacity-50',
                     )}
                   >
-                    {buy.isPending && buy.variables?.id === o.id ? (
+                    {buy.isPending && buy.variables?.offer.id === o.id ? (
                       <Loader2 size={16} className="animate-spin" />
                     ) : (
                       <>
@@ -365,6 +371,14 @@ export default function HomePage() {
           )}
         </div>
       )}
+
+      <BuySheet
+        offer={confirmOffer}
+        locale={locale}
+        pending={buy.isPending || buy.isSuccess}
+        onClose={() => setConfirmOffer(null)}
+        onConfirm={(promoCode) => confirmOffer && buy.mutate({ offer: confirmOffer, promoCode })}
+      />
     </div>
   );
 }

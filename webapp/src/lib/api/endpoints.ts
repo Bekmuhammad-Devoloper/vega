@@ -36,8 +36,14 @@ export const apiStorefront = () => api<StorefrontOffer[]>('/numbers/storefront')
 // ───── Raqam buyurtmalari ─────
 export const apiListNumberOrders = () => api<NumberOrder[]>('/numbers/orders');
 export const apiGetNumberOrder = (id: string) => api<NumberOrder>(`/numbers/orders/${id}`);
-export const apiBuyNumber = (body: { serviceId: string; countryId: string }) =>
+export const apiBuyNumber = (body: { serviceId: string; countryId: string; promoCode?: string }) =>
   api<NumberOrder>('/numbers/orders', { method: 'POST', body });
+/** Promokodni tekshiradi — chegirma miqdorini qaytaradi (hali ishlatmaydi). */
+export const apiApplyPromo = (body: { code: string; amount: number }) =>
+  api<{ code: string; discountAmount: number; subtotal: number }>('/promo-codes/apply', {
+    method: 'POST',
+    body,
+  });
 /** SMS kodni tekshiradi (poll) — yangilangan buyurtmani qaytaradi. */
 export const apiCheckNumberOrder = (id: string) =>
   api<NumberOrder>(`/numbers/orders/${id}/check`, { method: 'POST' });

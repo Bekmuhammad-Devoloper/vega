@@ -14,6 +14,7 @@ import { ProvidersService } from '../providers/providers.service';
 import { WalletService } from '../wallet/wallet.service';
 import { UploadsService } from '../uploads/uploads.service';
 import { TenantBotService } from '../telegram-bot/tenant-bot.service';
+import { PromoCodesService } from '../promo-codes/promo-codes.service';
 
 /// Raqam-buyurtma oqimi: reseller ulgurji to'laydi -> provayderdan raqam ->
 /// mijoz retail to'laydi -> SMS poll -> kod yetkaziladi.
@@ -30,6 +31,7 @@ export class NumbersService {
     private readonly events: EventEmitter2,
     private readonly uploads: UploadsService,
     private readonly tenantBot: TenantBotService,
+    private readonly promos?: PromoCodesService,
   ) {}
 
   /**
@@ -248,6 +250,7 @@ export class NumbersService {
     userId: string;
     serviceId: string;
     countryId: string;
+    promoCode?: string;
   }) {
     const { tenantId, userId, serviceId, countryId } = params;
 
@@ -272,10 +275,20 @@ export class NumbersService {
     // Avto-narxli taklif: mijozdan JONLI narx olinadi (tan narxi + sotuvchi
     // ustamasi). Saqlangan retailPrice 10 daqiqagacha eskirgan bo'lishi
     // mumkin — tan narxi oshgan bo'lsa sotuvchi zarariga sotib qo'yardi.
-    const retailUzs =
+    const listUzs =
       offer.markupUzs != null
         ? CatalogService.autoRetail(quote.totalUzs, offer.markupUzs)
         : Number(offer.retailPrice);
+
+    // Promokod: chegirma mijoz to'laydigan narxdan (sotuvchi foydasidan) ayriladi.
+    // Xato promokodda provayderdan raqam OLINMAYDI — tekshiruv xariddan oldin.
+    const promoInput = params.promoCode?.trim();
+    const promo =
+      promoInput && this.promos
+        ? await this.promos.evaluate(userId, promoInput, listUzs, tenantId)
+        : null;
+    const discountUzs = promo ? Math.min(promo.discountAmount, listUzs) : 0;
+    const retailUzs = listUzs - discountUzs;
     const wholesaleUzs = quote.totalUzs; // tan narxi + ustama (reseller shu miqdorni to'laydi)
 
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
@@ -348,9 +361,20 @@ export class NumbersService {
           profit,
           paidAt: new Date(),
           expiresAt: bought.expiresAt,
+          ...(promo && {
+            promoCodeId: promo.promo.id,
+            promoSnapshot: JSON.stringify({
+              code: promo.promo.code,
+              discountUzs,
+              priceBeforeUzs: listUzs,
+            }),
+          }),
         },
         include: { service: true, country: true },
       });
+      if (promo && this.promos) {
+        await this.promos.consume(tx, promo.promo.id, userId, o.id);
+      }
       await tx.numberOrderEvent.create({
         data: {
           orderId: o.id,
@@ -488,6 +512,7 @@ export class NumbersService {
         where: { id: o.userId },
         data: { balance: { increment: Number(o.retailPrice) } },
       });
+      await this.promos?.release(tx, id);
       await tx.numberOrderEvent.create({
         data: { orderId: id, status: NumberOrderStatus.CANCELLED, comment: reason },
       });
@@ -583,6 +608,7 @@ export class NumbersService {
         where: { id: o.userId },
         data: { balance: { increment: Number(o.retailPrice) } },
       });
+      await this.promos?.release(tx, id);
       await tx.numberOrderEvent.create({
         data: {
           orderId: id,

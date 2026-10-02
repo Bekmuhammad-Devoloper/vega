@@ -17,6 +17,8 @@ export interface PromoEvaluation {
   discountAmount: number;
 }
 
+type Tx = Parameters<Parameters<PrismaService['$transaction']>[0]>[0];
+
 @Injectable()
 export class PromoCodesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -47,30 +49,30 @@ export class PromoCodesService {
     subtotal: number,
     tenantId?: string | null,
   ): Promise<PromoEvaluation> {
-    if (!code) throw new BadRequestException('Code required');
+    if (!code) throw new BadRequestException('Promokodni kiriting');
     const promo = await this.prisma.promoCode.findFirst({
       where: { code: code.trim().toUpperCase(), tenantId: tenantId ?? null },
     });
-    if (!promo || !promo.isActive) throw new NotFoundException('Promo code not found');
+    if (!promo || !promo.isActive) throw new NotFoundException('Bunday promokod topilmadi');
 
     const now = new Date();
-    if (promo.startsAt && promo.startsAt > now) throw new BadRequestException('Promo not active yet');
-    if (promo.expiresAt && promo.expiresAt < now) throw new BadRequestException('Promo expired');
+    if (promo.startsAt && promo.startsAt > now) throw new BadRequestException('Promokod hali faol emas');
+    if (promo.expiresAt && promo.expiresAt < now) throw new BadRequestException('Promokod muddati tugagan');
 
     if (promo.usageLimit !== null && promo.usageCount >= promo.usageLimit) {
-      throw new BadRequestException('Promo usage limit reached');
+      throw new BadRequestException('Promokod limiti tugagan');
     }
 
     const userUsages = await this.prisma.promoCodeUsage.count({
       where: { promoCodeId: promo.id, userId },
     });
     if (userUsages >= promo.perUserLimit) {
-      throw new BadRequestException('You already used this promo');
+      throw new BadRequestException('Siz bu promokoddan allaqachon foydalangansiz');
     }
 
     if (promo.minOrderAmount && subtotal < Number(promo.minOrderAmount)) {
       throw new BadRequestException(
-        `Minimum order amount is ${Number(promo.minOrderAmount)}`,
+        `Promokod kamida ${Number(promo.minOrderAmount).toLocaleString('uz-UZ')} so'mlik xaridga amal qiladi`,
       );
     }
 
@@ -86,13 +88,26 @@ export class PromoCodesService {
     return { promo, discountAmount: discount };
   }
 
-  async applyOnUsage(tx: Parameters<Parameters<PrismaService['$transaction']>[0]>[0], promoId: string, userId: string, orderId: string): Promise<void> {
-    await tx.promoCode.update({
-      where: { id: promoId },
-      data: { usageCount: { increment: 1 } },
-    });
-    await tx.promoCodeUsage.create({
-      data: { promoCodeId: promoId, userId, orderId },
-    });
+  /**
+   * Promokodni buyurtma tranzaksiyasi ICHIDA band qiladi. Limit sharti SQL'da
+   * (usageCount < usageLimit) — ikki mijoz oxirgi bitta joyni bir vaqtda
+   * olsa ham faqat bittasi o'tadi.
+   */
+  async consume(tx: Tx, promoId: string, userId: string, orderId: string): Promise<void> {
+    const n = await tx.$executeRaw`
+      UPDATE "PromoCode" SET "usageCount" = "usageCount" + 1, "updatedAt" = now()
+      WHERE id = ${promoId} AND "isActive" = true
+        AND ("usageLimit" IS NULL OR "usageCount" < "usageLimit")`;
+    if (n !== 1) throw new BadRequestException('Promokod limiti tugagan');
+    await tx.promoCodeUsage.create({ data: { promoCodeId: promoId, userId, orderId } });
+  }
+
+  /** Buyurtma bekor bo'lib pul qaytsa — promokod ham mijozga qaytadi. */
+  async release(tx: Tx, orderId: string): Promise<void> {
+    const usage = await tx.promoCodeUsage.findUnique({ where: { orderId } });
+    if (!usage) return;
+    await tx.promoCodeUsage.delete({ where: { id: usage.id } });
+    await tx.$executeRaw`
+      UPDATE "PromoCode" SET "usageCount" = GREATEST("usageCount" - 1, 0) WHERE id = ${usage.promoCodeId}`;
   }
 }

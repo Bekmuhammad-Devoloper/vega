@@ -7,6 +7,7 @@ import { WalletModule } from '../wallet/wallet.module';
 import { AuthModule } from '../auth/auth.module';
 import { UploadsModule } from '../uploads/uploads.module';
 import { TelegramBotModule } from '../telegram-bot/telegram-bot.module';
+import { PromoCodesModule } from '../promo-codes/promo-codes.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { TelegramBotModule } from '../telegram-bot/telegram-bot.module';
     AuthModule,
     UploadsModule,
     TelegramBotModule,
+    PromoCodesModule,
   ],
   providers: [NumbersService],
   controllers: [NumbersController],

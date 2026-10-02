@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import { IsString } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { type User } from '@prisma/client';
 import { TelegramAuthGuard } from '../auth/telegram-auth.guard';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
@@ -23,6 +23,7 @@ import { NumbersService } from './numbers.service';
 class CreateOrderDto {
   @IsString() serviceId!: string;
   @IsString() countryId!: string;
+  @IsOptional() @IsString() @MaxLength(64) promoCode?: string;
 }
 
 /// Mijoz (webapp/bot) — do'kon slug'i x-tenant-slug header orqali.
@@ -63,6 +64,7 @@ export class NumbersController {
       userId: user.id,
       serviceId: dto.serviceId,
       countryId: dto.countryId,
+      promoCode: dto.promoCode,
     });
   }
 
