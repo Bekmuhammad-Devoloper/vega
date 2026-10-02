@@ -33,6 +33,15 @@ async function bootstrap(): Promise<void> {
   // ko'rishi uchun. Aks holda hamma so'rov nginx IP'sidan deb hisoblanadi.
   app.set('trust proxy', 1);
 
+  // API domeni ILDIZI (`GET /`). `go-live.sh` har domenning `https://<d>/` ini
+  // tekshiradi; API'da bu yo'l yo'q edi -> har 10 daqiqada 404 va logda
+  // "Cannot GET /" ogohlantirishi. To'g'ridan-to'g'ri Express'da ro'yxatdan
+  // o'tkaziladi: `setGlobalPrefix` exclude'iga '/' qo'shish boshqa barcha
+  // route'larning prefiksiga ta'sir qilishi mumkin edi.
+  app.getHttpAdapter().get('/', (_req, res) => {
+    app.getHttpAdapter().reply(res, { status: 'ok', service: 'vega-api' }, 200);
+  });
+
   const webappUrl = process.env.WEBAPP_URL ?? 'http://localhost:5174';
   const adminUrl = process.env.ADMIN_URL ?? 'http://localhost:5175';
   const superAdminUrl = process.env.SUPERADMIN_URL ?? 'http://localhost:5180';
