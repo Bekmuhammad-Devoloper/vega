@@ -131,7 +131,9 @@ export default function BannersPage() {
                 </div>
                 <div className="p-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">{b.placement}</span>
+                    <span className="text-sm font-medium">
+                      {b.placement === 'home' ? 'Bosh sahifa' : b.placement === 'category' ? 'Xizmat ichida' : b.placement}
+                    </span>
                     <div className="flex gap-1">
                       {b.isActive ? <Badge tone="green">Faol</Badge> : <Badge tone="gray">Off</Badge>}
                       <Badge tone="blue">#{b.position}</Badge>
@@ -160,10 +162,10 @@ export default function BannersPage() {
 
       <Sheet open={open} onClose={() => setOpen(false)} title={editing ? 'Tahrirlash' : 'Yangi banner'}>
         <div className="space-y-3">
-          <Field label="Placement">
+          <Field label="Qayerda ko'rinsin">
             <Select value={form.placement} onChange={(e) => setForm({ ...form, placement: e.target.value })}>
-              <option value="home">Home</option>
-              <option value="category">Category</option>
+              <option value="home">Bosh sahifa (do&apos;kon ochilganda)</option>
+              <option value="category">Xizmat ichida (davlatlar ro&apos;yxati tepasida)</option>
             </Select>
           </Field>
           <Field label="Rasm">
@@ -190,10 +192,9 @@ export default function BannersPage() {
           </Field>
           <Field label="Target turi">
             <Select value={form.targetType} onChange={(e) => setForm({ ...form, targetType: e.target.value })}>
-              <option value="none">Yo&apos;q</option>
-              <option value="product">Mahsulot (ID)</option>
-              <option value="category">Kategoriya (ID)</option>
-              <option value="url">URL</option>
+              <option value="none">Hech narsa (faqat rasm)</option>
+              <option value="category">Xizmatni ochish (masalan: telegram)</option>
+              <option value="url">Havola (kanal, sayt)</option>
             </Select>
           </Field>
           {form.targetType !== 'none' && (

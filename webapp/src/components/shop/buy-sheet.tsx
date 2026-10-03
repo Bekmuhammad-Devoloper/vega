@@ -12,6 +12,7 @@ import { formatMoney } from '@/lib/format';
 import { haptic } from '@/lib/telegram';
 import type { StorefrontOffer } from '@/lib/api/types';
 import type { Locale } from '@/i18n';
+import { promoLabel, usePublicPromos } from './promo-strip';
 
 /**
  * Xaridni tasdiqlash oynasi: narx, ixtiyoriy promokod va yakuniy summa.
@@ -38,8 +39,9 @@ export function BuySheet({
   const price = Number(offer?.retailPrice ?? 0);
   const total = Math.max(0, price - (applied?.discount ?? 0));
 
+  const { data: promos } = usePublicPromos();
   const check = useMutation({
-    mutationFn: () => apiApplyPromo({ code: code.trim(), amount: price }),
+    mutationFn: (c: string) => apiApplyPromo({ code: c.trim(), amount: price }),
     onSuccess: (r) => {
       haptic('success');
       setApplied({ code: r.code, discount: r.discountAmount });
@@ -117,7 +119,7 @@ export function BuySheet({
                     check.reset();
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && code.trim()) check.mutate();
+                    if (e.key === 'Enter' && code.trim()) check.mutate(code);
                   }}
                   placeholder={ru ? 'Промокод' : 'Promokod'}
                   autoCapitalize="characters"
@@ -127,7 +129,7 @@ export function BuySheet({
                   variant="secondary"
                   loading={check.isPending}
                   disabled={!code.trim()}
-                  onClick={() => check.mutate()}
+                  onClick={() => check.mutate(code)}
                   className="shrink-0"
                 >
                   {ru ? 'Применить' : "Qo'llash"}
@@ -137,6 +139,24 @@ export function BuySheet({
                 <p className="mt-1.5 px-1 text-sm text-[var(--color-danger)]">
                   {(check.error as Error).message}
                 </p>
+              )}
+              {!!promos?.length && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {promos.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      disabled={check.isPending}
+                      onClick={() => {
+                        setCode(p.code);
+                        check.mutate(p.code);
+                      }}
+                      className="rounded-full border border-dashed border-[var(--color-primary)]/50 bg-[var(--color-primary)]/[0.06] px-3 py-1.5 text-xs font-bold text-[var(--color-primary)] active:scale-95 transition-transform"
+                    >
+                      {p.code} · {promoLabel(p, locale)}
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
           ) : (

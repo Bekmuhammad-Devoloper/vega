@@ -38,6 +38,25 @@ export const apiListNumberOrders = () => api<NumberOrder[]>('/numbers/orders');
 export const apiGetNumberOrder = (id: string) => api<NumberOrder>(`/numbers/orders/${id}`);
 export const apiBuyNumber = (body: { serviceId: string; countryId: string; promoCode?: string }) =>
   api<NumberOrder>('/numbers/orders', { method: 'POST', body });
+export interface BannerDto {
+  id: string;
+  imageUrl: string;
+  targetType: string;
+  targetValue: string | null;
+}
+export interface PublicPromo {
+  id: string;
+  code: string;
+  type: 'PERCENT' | 'FIXED';
+  value: number;
+  minOrderAmount: number | null;
+  maxDiscount: number | null;
+  expiresAt: string | null;
+}
+/** placement: 'home' — bosh sahifa, 'category' — xizmat (davlatlar) sahifasi. */
+export const apiBanners = (placement: 'home' | 'category') =>
+  api<BannerDto[]>('/banners', { query: { placement } });
+export const apiPublicPromos = () => api<PublicPromo[]>('/promo-codes/public');
 /** Promokodni tekshiradi — chegirma miqdorini qaytaradi (hali ishlatmaydi). */
 export const apiApplyPromo = (body: { code: string; amount: number }) =>
   api<{ code: string; discountAmount: number; subtotal: number }>('/promo-codes/apply', {

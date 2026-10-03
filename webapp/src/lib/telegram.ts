@@ -31,6 +31,18 @@ export function haptic(type: 'light' | 'medium' | 'heavy' | 'success' | 'error' 
   }
 }
 
+/** Havolani ochadi: t.me havolalari Telegram ichida, qolganlari brauzerda. */
+export function openLink(url: string): void {
+  const wa = getWebApp();
+  if (/^https?:\/\/(t\.me|telegram\.me)\//i.test(url) && wa?.openTelegramLink) {
+    wa.openTelegramLink(url);
+  } else if (wa?.openLink) {
+    wa.openLink(url);
+  } else if (typeof window !== 'undefined') {
+    window.open(url, '_blank', 'noopener');
+  }
+}
+
 export function showAlert(message: string): void {
   const wa = getWebApp();
   if (wa?.showAlert) wa.showAlert(message);

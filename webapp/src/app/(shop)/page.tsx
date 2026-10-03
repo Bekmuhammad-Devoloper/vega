@@ -8,6 +8,8 @@ import { AppHeader } from '@/components/shop/app-header';
 import { DigitalSections } from '@/components/shop/digital-sections';
 import { CryptoSection } from '@/components/shop/crypto-section';
 import { BuySheet } from '@/components/shop/buy-sheet';
+import { BannerCarousel } from '@/components/shop/banner-carousel';
+import { PromoStrip } from '@/components/shop/promo-strip';
 import { CountryFlag } from '@/components/country-flag';
 import { ServiceIcon } from '@/components/service-icon';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -92,6 +94,15 @@ export default function HomePage() {
     },
   });
 
+  // Banner bosilganda — targetValue (xizmat id yoki slug) bo'yicha xizmatni ochamiz.
+  const openService = (idOrSlug: string) => {
+    const v = idOrSlug.toLowerCase();
+    const g = groups.find((x) => x.service.id === idOrSlug || x.service.slug.toLowerCase() === v);
+    if (!g) return;
+    setCountryQuery('');
+    setSelectedServiceId(g.service.id);
+  };
+
   const filteredGroups = query.trim()
     ? groups.filter((g) => sName(g.service).toLowerCase().includes(query.trim().toLowerCase()))
     : groups;
@@ -133,6 +144,10 @@ export default function HomePage() {
               </div>
             </div>
           </div>
+
+          <BannerCarousel placement="home" onOpenService={openService} className="px-4 pt-3" />
+
+          <PromoStrip locale={locale} />
 
           {/* ── Ishonch belgilari ── */}
           <div className="px-4 pt-3">
@@ -297,6 +312,8 @@ export default function HomePage() {
               </p>
             </div>
           </div>
+
+          <BannerCarousel placement="category" onOpenService={openService} className="px-4 pb-3" />
 
           {/* ── Davlat qidiruvi ── */}
           {selected.offers.length > 6 && (
