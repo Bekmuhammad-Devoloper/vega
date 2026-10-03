@@ -75,59 +75,60 @@ export function PromoStrip({ locale }: { locale: Locale }) {
               type="button"
               onClick={() => copy(p.code)}
               className={cn(
-                'relative flex shrink-0 snap-start overflow-hidden rounded-[20px] text-left shadow-[0_6px_20px_-6px_rgba(234,88,12,0.45)] active:scale-[0.985] transition-transform',
-                single ? 'w-full' : 'w-[86%]',
+                'relative flex h-[60px] shrink-0 snap-start overflow-hidden rounded-2xl bg-white text-left ring-1 ring-orange-100 shadow-[0_4px_14px_-6px_rgba(234,88,12,0.35)] transition-transform active:scale-[0.985]',
+                single ? 'w-full' : 'w-[84%]',
               )}
             >
               {/* Chap: chegirma */}
-              <div className="relative flex w-[38%] flex-col justify-center bg-gradient-to-br from-amber-400 via-orange-500 to-rose-500 py-3.5 pl-4 pr-3 text-white">
-                <div className="pointer-events-none absolute -left-6 -top-6 h-16 w-16 rounded-full bg-white/20" />
-                <div className="pointer-events-none absolute -bottom-8 right-0 h-16 w-16 rounded-full bg-white/10" />
-                <span className="relative inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-white/90">
-                  <Gift size={11} />
-                  {ru ? 'Скидка' : 'Chegirma'}
+              <div className="relative flex w-[34%] shrink-0 items-center gap-2 overflow-hidden bg-gradient-to-br from-amber-400 via-orange-500 to-rose-500 pl-3 pr-2 text-white">
+                <div className="pointer-events-none absolute -left-4 -top-5 h-12 w-12 rounded-full bg-white/20" />
+                <span className="relative grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/20 ring-1 ring-white/30">
+                  <Gift size={14} />
                 </span>
-                <span className="relative mt-0.5 flex items-baseline gap-1 leading-none">
-                  <span className="text-[24px] font-black tabular-nums tracking-tight [text-shadow:0_2px_8px_rgba(0,0,0,0.15)]">
-                    {amount}
+                <span className="relative min-w-0 leading-none">
+                  <span className="block truncate text-[16px] font-black tabular-nums tracking-tight">
+                    −{amount}
                   </span>
-                  <span className="text-[12px] font-bold">{unit}</span>
+                  <span className="mt-[3px] block text-[9.5px] font-bold uppercase tracking-wide text-white/85">
+                    {unit === '%' ? (ru ? '% скидка' : '% chegirma') : unit}
+                  </span>
                 </span>
               </div>
 
               {/* Kesik chiziq + teshiklar */}
               <div className="relative w-0">
-                <span className="absolute -left-2.5 -top-2.5 h-5 w-5 rounded-full bg-[var(--color-bg)]" />
-                <span className="absolute -bottom-2.5 -left-2.5 h-5 w-5 rounded-full bg-[var(--color-bg)]" />
-                <span className="absolute inset-y-3 left-0 border-l-2 border-dashed border-orange-200" />
+                <span className="absolute -left-2 -top-2 h-4 w-4 rounded-full bg-[var(--color-bg)] ring-1 ring-orange-100" />
+                <span className="absolute -bottom-2 -left-2 h-4 w-4 rounded-full bg-[var(--color-bg)] ring-1 ring-orange-100" />
+                <span className="absolute inset-y-2.5 left-0 border-l-[1.5px] border-dashed border-orange-200" />
               </div>
 
               {/* O'ng: kod */}
-              <div className="flex flex-1 items-center gap-2 bg-white py-3 pl-4 pr-3">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-                    {ru ? 'Промокод' : 'Promokod'}
-                  </p>
-                  <p className="truncate font-mono text-[19px] font-black leading-tight tracking-[0.14em] text-[var(--color-text)]">
+              <div className="flex min-w-0 flex-1 items-center gap-2 pl-3.5 pr-2.5">
+                <div className="min-w-0 flex-1 leading-none">
+                  <p className="truncate font-mono text-[16px] font-black tracking-[0.16em] text-[var(--color-text)]">
                     {p.code}
                   </p>
-                  {until && (
-                    <p className="mt-0.5 inline-flex items-center gap-1 text-[10.5px] text-[var(--color-text-muted)]">
-                      <Clock size={10} />
-                      {until}
-                    </p>
-                  )}
+                  <p className="mt-1 flex items-center gap-1 truncate text-[10.5px] text-[var(--color-text-muted)]">
+                    {until ? (
+                      <>
+                        <Clock size={10} className="shrink-0" />
+                        {until}
+                      </>
+                    ) : ru ? (
+                      'Промокод'
+                    ) : (
+                      'Promokod'
+                    )}
+                  </p>
                 </div>
                 <span
+                  aria-label={ru ? 'Копировать' : 'Nusxalash'}
                   className={cn(
-                    'inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-bold transition-colors',
-                    isCopied
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-orange-50 text-orange-600',
+                    'grid h-8 w-8 shrink-0 place-items-center rounded-full transition-colors',
+                    isCopied ? 'bg-emerald-500 text-white' : 'bg-orange-50 text-orange-600',
                   )}
                 >
-                  {isCopied ? <Check size={12} strokeWidth={3} /> : <Copy size={12} />}
-                  {isCopied ? (ru ? 'Готово' : 'Olindi') : ru ? 'Копировать' : 'Nusxalash'}
+                  {isCopied ? <Check size={15} strokeWidth={3} /> : <Copy size={14} />}
                 </span>
               </div>
             </button>
