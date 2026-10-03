@@ -32,6 +32,10 @@ export function BannerCarousel({
   const track = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
   const count = banners.length + (leading ? 1 : 0);
+  // Slayd nisbati birinchi banner rasmining O'Z nisbatidan olinadi — admin
+  // qanday o'lchamda yuklamasin, rasm kesilmaydi. Juda past/baland rasmlarda
+  // sarlavha slaydi sig'ishi uchun chegaralanadi.
+  const [ratio, setRatio] = useState(2.4);
 
   useEffect(() => {
     if (count < 2) return;
@@ -65,7 +69,10 @@ export function BannerCarousel({
         className="flex snap-x snap-mandatory overflow-x-auto rounded-3xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {leading && (
-          <div className="relative aspect-[2.4/1] w-full shrink-0 snap-center overflow-hidden">
+          <div
+            style={{ aspectRatio: ratio }}
+            className="relative w-full shrink-0 snap-center overflow-hidden"
+          >
             {leading}
           </div>
         )}
@@ -74,7 +81,8 @@ export function BannerCarousel({
             key={b.id}
             type="button"
             onClick={() => click(b)}
-            className="relative aspect-[2.4/1] w-full shrink-0 snap-center overflow-hidden bg-[var(--color-bg)]"
+            style={{ aspectRatio: ratio }}
+            className="relative w-full shrink-0 snap-center overflow-hidden bg-[#0b1530]"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -83,7 +91,13 @@ export function BannerCarousel({
               // Yon slaydlar ham oldindan yuklanadi — aks holda almashganda bo'sh joy ko'rinadi.
               loading={i < 3 ? 'eager' : 'lazy'}
               decoding="async"
-              className="h-full w-full object-cover"
+              onLoad={(e) => {
+                const im = e.currentTarget;
+                if (i === 0 && im.naturalWidth && im.naturalHeight) {
+                  setRatio(Math.min(2.6, Math.max(1.6, im.naturalWidth / im.naturalHeight)));
+                }
+              }}
+              className="h-full w-full object-contain"
             />
           </button>
         ))}
