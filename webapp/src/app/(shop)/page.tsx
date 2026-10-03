@@ -114,38 +114,41 @@ export default function HomePage() {
       {/* ── Service list ── */}
       {!selected ? (
         <>
-          {/* ── Hero ── */}
-          <div className="px-4 pt-3">
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[var(--color-primary)] to-[#1E4FCC] p-5 text-white shadow-lg">
-              <div className="pointer-events-none absolute -right-10 -top-12 h-36 w-36 rounded-full bg-white/10" />
-              <div className="pointer-events-none absolute right-10 -bottom-8 h-24 w-24 rounded-full bg-white/5" />
-              <div className="relative">
-                <h2 className="text-[22px] font-extrabold leading-tight">
-                  {locale === 'ru' ? 'Виртуальные номера' : 'Virtual raqamlar'}
-                </h2>
-                <p className="mt-1.5 text-[13px] leading-snug text-white/85">
-                  {locale === 'ru'
-                    ? 'Для SMS-подтверждения — за секунды и надёжно.'
-                    : 'SMS tasdiqlash uchun — soniyalarda va ishonchli.'}
-                </p>
-                <div className="mt-4 flex flex-wrap gap-1.5">
-                  {(locale === 'ru'
-                    ? ['1 · Выберите', '2 · Оплатите', '3 · Код придёт']
-                    : ['1 · Tanlang', '2 · Sotib oling', '3 · Kod keladi']
-                  ).map((s) => (
-                    <span
-                      key={s}
-                      className="rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold"
-                    >
-                      {s}
-                    </span>
-                  ))}
+          {/* ── Hero + bannerlar: bitta karusel, 5 soniyada almashadi ── */}
+          <BannerCarousel
+            placement="home"
+            onOpenService={openService}
+            className="px-4 pt-3"
+            leading={
+              <div className="relative flex h-full flex-col justify-center overflow-hidden bg-gradient-to-br from-[var(--color-primary)] to-[#1E4FCC] px-5 text-white">
+                <div className="pointer-events-none absolute -right-10 -top-12 h-36 w-36 rounded-full bg-white/10" />
+                <div className="pointer-events-none absolute right-10 -bottom-8 h-24 w-24 rounded-full bg-white/5" />
+                <div className="relative">
+                  <h2 className="text-[21px] font-extrabold leading-tight">
+                    {locale === 'ru' ? 'Виртуальные номера' : 'Virtual raqamlar'}
+                  </h2>
+                  <p className="mt-1 text-[12.5px] leading-snug text-white/85">
+                    {locale === 'ru'
+                      ? 'Для SMS-подтверждения — за секунды и надёжно.'
+                      : 'SMS tasdiqlash uchun — soniyalarda va ishonchli.'}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {(locale === 'ru'
+                      ? ['1 · Выберите', '2 · Оплатите', '3 · Код придёт']
+                      : ['1 · Tanlang', '2 · Sotib oling', '3 · Kod keladi']
+                    ).map((st) => (
+                      <span
+                        key={st}
+                        className="rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold"
+                      >
+                        {st}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-
-          <BannerCarousel placement="home" onOpenService={openService} className="px-4 pt-3" />
+            }
+          />
 
           <PromoStrip locale={locale} />
 

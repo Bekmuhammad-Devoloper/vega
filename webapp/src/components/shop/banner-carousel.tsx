@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiBanners, type BannerDto } from '@/lib/api/endpoints';
 import { haptic, openLink } from '@/lib/telegram';
@@ -14,8 +14,11 @@ export function BannerCarousel({
   placement,
   onOpenService,
   className,
+  leading,
 }: {
   placement: 'home' | 'category';
+  /** Bannerlardan oldingi doimiy slayd (masalan, bosh sahifa sarlavhasi). */
+  leading?: ReactNode;
   /** targetType=category|product — shu xizmatni (id yoki slug) ochadi. */
   onOpenService?: (idOrSlug: string) => void;
   className?: string;
@@ -28,19 +31,20 @@ export function BannerCarousel({
   const banners = data ?? [];
   const track = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
+  const count = banners.length + (leading ? 1 : 0);
 
   useEffect(() => {
-    if (banners.length < 2) return;
+    if (count < 2) return;
     const t = setInterval(() => {
       const el = track.current;
       if (!el) return;
-      const next = (Math.round(el.scrollLeft / el.clientWidth) + 1) % banners.length;
+      const next = (Math.round(el.scrollLeft / el.clientWidth) + 1) % count;
       el.scrollTo({ left: next * el.clientWidth, behavior: 'smooth' });
     }, 5000);
     return () => clearInterval(t);
-  }, [banners.length]);
+  }, [count]);
 
-  if (!banners.length) return null;
+  if (!count) return null;
 
   const click = (b: BannerDto) => {
     const v = b.targetValue?.trim();
@@ -60,6 +64,11 @@ export function BannerCarousel({
         }}
         className="flex snap-x snap-mandatory overflow-x-auto rounded-3xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
+        {leading && (
+          <div className="relative aspect-[2.4/1] w-full shrink-0 snap-center overflow-hidden">
+            {leading}
+          </div>
+        )}
         {banners.map((b, i) => (
           <button
             key={b.id}
@@ -71,18 +80,19 @@ export function BannerCarousel({
             <img
               src={b.imageUrl}
               alt=""
-              loading={i === 0 ? 'eager' : 'lazy'}
+              // Yon slaydlar ham oldindan yuklanadi — aks holda almashganda bo'sh joy ko'rinadi.
+              loading={i < 3 ? 'eager' : 'lazy'}
               decoding="async"
               className="h-full w-full object-cover"
             />
           </button>
         ))}
       </div>
-      {banners.length > 1 && (
+      {count > 1 && (
         <div className="mt-2 flex justify-center gap-1.5">
-          {banners.map((b, i) => (
+          {Array.from({ length: count }, (_, i) => (
             <span
-              key={b.id}
+              key={i}
               className={cn(
                 'h-1.5 rounded-full transition-all',
                 i === active ? 'w-4 bg-[var(--color-primary)]' : 'w-1.5 bg-[var(--color-border)]',
