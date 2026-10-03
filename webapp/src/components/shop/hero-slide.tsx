@@ -1,8 +1,5 @@
-import { ShieldCheck, Zap } from 'lucide-react';
+import { Globe2, ShieldCheck, Zap } from 'lucide-react';
 import type { Locale } from '@/i18n';
-
-const APPS = ['telegram', 'whatsapp', 'instagram', 'gmail'] as const;
-const FLAGS = ['uz', 'kz', 'tr', 'us'] as const;
 
 /**
  * Bosh sahifa karuselining birinchi slaydi — rasm emas, kod bilan chizilgan
@@ -11,85 +8,103 @@ const FLAGS = ['uz', 'kz', 'tr', 'us'] as const;
 export function HeroSlide({ locale }: { locale: Locale }) {
   const ru = locale === 'ru';
   return (
-    <div className="relative flex h-full overflow-hidden bg-[radial-gradient(120%_140%_at_0%_0%,#3B82F6_0%,#1D4ED8_45%,#0B1B4D_100%)] text-white">
-      {/* Fon bezaklari */}
-      <div className="pointer-events-none absolute -left-16 -bottom-20 h-48 w-48 rounded-full bg-sky-400/20 blur-2xl" />
-      <div className="pointer-events-none absolute right-[-30%] top-[-40%] h-[140%] w-[80%] rounded-full border border-white/10" />
-      <div className="pointer-events-none absolute right-[-18%] top-[-20%] h-[110%] w-[62%] rounded-full border border-white/10" />
+    <div className="relative flex h-full overflow-hidden bg-[linear-gradient(135deg,#2563EB_0%,#1E40AF_48%,#0B1440_100%)] text-white">
+      {/* ── Fon ── */}
+      <div className="pointer-events-none absolute -left-10 -top-16 h-44 w-44 rounded-full bg-sky-300/25 blur-3xl" />
+      <div className="pointer-events-none absolute right-[8%] top-1/2 h-40 w-40 -translate-y-1/2 rounded-full bg-indigo-400/40 blur-3xl" />
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.07]"
+        className="pointer-events-none absolute inset-0 opacity-[0.08]"
         style={{
           backgroundImage: 'radial-gradient(white 1px, transparent 1px)',
-          backgroundSize: '14px 14px',
+          backgroundSize: '16px 16px',
+          maskImage: 'linear-gradient(90deg, transparent 0%, black 55%)',
+          WebkitMaskImage: 'linear-gradient(90deg, transparent 0%, black 55%)',
         }}
       />
+      <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/10" />
 
-      {/* Chap: matn */}
-      <div className="relative z-10 flex w-[58%] flex-col justify-center gap-2 py-4 pl-5 pr-1">
-        <span className="inline-flex w-fit items-center gap-1 rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-[#3b2600] shadow-[0_2px_10px_rgba(251,191,36,0.45)]">
+      {/* ── Chap: matn ── */}
+      <div className="relative z-10 flex w-[57%] flex-col justify-center py-4 pl-5">
+        <span className="inline-flex w-fit items-center gap-1 rounded-full bg-gradient-to-r from-amber-300 to-amber-400 px-2.5 py-[3px] text-[10px] font-extrabold uppercase tracking-wider text-[#3b2600] shadow-[0_4px_14px_rgba(251,191,36,0.45)]">
           <Zap size={11} className="fill-current" />
           {ru ? 'Мгновенно' : 'Tezkor'}
         </span>
-        <h2 className="text-[22px] font-black leading-[1.05] tracking-tight [text-shadow:0_2px_12px_rgba(0,0,0,0.25)]">
-          {ru ? (
-            <>Виртуальные<br />номера</>
-          ) : (
-            <>Virtual<br />raqamlar</>
-          )}
+
+        <h2 className="mt-2.5 text-[25px] font-black leading-[1.02] tracking-tight">
+          {ru ? 'Виртуальные' : 'Virtual'}
+          <br />
+          <span className="bg-gradient-to-r from-amber-200 via-amber-300 to-orange-300 bg-clip-text text-transparent">
+            {ru ? 'номера' : 'raqamlar'}
+          </span>
         </h2>
-        <p className="text-[11.5px] leading-snug text-white/80">
-          {ru
-            ? 'SMS-код за секунды — 200+ стран'
-            : 'SMS kod soniyalarda — 200+ davlat'}
+
+        <p className="mt-1.5 text-[12px] font-medium text-white/75">
+          {ru ? 'SMS-код приходит за секунды' : 'SMS kod soniyalarda keladi'}
         </p>
-        <div className="mt-0.5 flex items-center gap-1.5">
-          <div className="flex -space-x-1.5">
-            {FLAGS.map((f) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={f}
-                src={`/flags/${f}.png`}
-                alt=""
-                className="h-[18px] w-[18px] rounded-full border-2 border-[#1D4ED8] object-cover"
-              />
-            ))}
-          </div>
-          <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-white/85">
-            <ShieldCheck size={12} className="text-emerald-300" />
-            {ru ? 'Надёжно · 24/7' : 'Ishonchli · 24/7'}
+
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          <span className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/10 px-2 py-1 text-[10.5px] font-semibold backdrop-blur-sm">
+            <Globe2 size={11} className="text-sky-200" />
+            {ru ? '200+ стран' : '200+ davlat'}
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/10 px-2 py-1 text-[10.5px] font-semibold backdrop-blur-sm">
+            <ShieldCheck size={11} className="text-emerald-300" />
+            24/7
           </span>
         </div>
       </div>
 
-      {/* O'ng: telefon + SMS kod */}
-      <div className="relative z-10 flex w-[42%] items-center justify-center pr-3">
-        <div className="relative h-[78%] max-h-[170px] w-[68%] max-w-[104px] rotate-[8deg] rounded-[18px] border border-white/25 bg-gradient-to-b from-white/25 to-white/5 p-1.5 shadow-[0_18px_40px_rgba(0,0,0,0.45)] backdrop-blur-sm">
-          <div className="flex h-full flex-col gap-1 rounded-[13px] bg-[#0B1B4D]/80 p-1.5">
-            <div className="mx-auto mb-0.5 h-1 w-6 rounded-full bg-white/25" />
-            {APPS.map((a) => (
-              <div key={a} className="flex items-center gap-1 rounded-md bg-white/10 px-1 py-[3px]">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`/brands/${a}.svg`} alt="" className="h-3 w-3 shrink-0" />
-                <span className="h-1 flex-1 rounded-full bg-white/25" />
+      {/* ── O'ng: telefon ── */}
+      <div className="relative z-10 flex w-[43%] items-center justify-center">
+        <div className="hero-float relative h-[80%] max-h-[178px] w-[64%] max-w-[106px]">
+          {/* korpus */}
+          <div className="absolute inset-0 rotate-[7deg] rounded-[20px] bg-gradient-to-b from-slate-200/80 to-slate-400/60 p-[3px] shadow-[0_22px_45px_-10px_rgba(0,0,0,0.6)]">
+            <div className="relative h-full overflow-hidden rounded-[17px] bg-gradient-to-b from-[#132257] to-[#0A1235]">
+              <div className="mx-auto mt-1.5 h-[5px] w-8 rounded-full bg-black/60" />
+              {/* ilovalar to'ri */}
+              <div className="mt-[34%] grid grid-cols-2 gap-1.5 px-2.5 opacity-90">
+                {(['telegram', 'whatsapp', 'instagram', 'gmail'] as const).map((a) => (
+                  <div
+                    key={a}
+                    className="grid aspect-square place-items-center rounded-[9px] bg-white/[0.08] ring-1 ring-white/10"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={`/brands/${a}.svg`} alt="" className="h-[55%] w-[55%]" />
+                  </div>
+                ))}
               </div>
-            ))}
+              <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/[0.07] to-transparent" />
+            </div>
           </div>
-        </div>
 
-        {/* SMS kod pufakchasi */}
-        <div className="absolute bottom-[14%] left-[2%] -rotate-[4deg] rounded-xl rounded-bl-sm bg-white px-2 py-1 text-[#0B1B4D] shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
-          <p className="text-[8px] font-semibold uppercase leading-none text-slate-500">
-            {ru ? 'Код' : 'Kod'}
-          </p>
-          <p className="mt-0.5 text-[13px] font-black leading-none tracking-[0.12em] tabular-nums">
-            48 213
-          </p>
-        </div>
+          {/* kelgan SMS bildirishnomasi */}
+          <div className="hero-pop absolute -left-[38%] top-[16%] w-[118%] -rotate-[3deg]">
+            <div className="flex items-center gap-1.5 rounded-[12px] bg-white/95 p-1.5 pr-2 text-[#0B1440] shadow-[0_12px_28px_-6px_rgba(0,0,0,0.5)] ring-1 ring-black/5">
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-[7px] bg-[#26A5E4]/12">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/brands/telegram.svg" alt="" className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 leading-none">
+                <span className="block text-[7.5px] font-semibold uppercase tracking-wide text-slate-500">
+                  Telegram · {ru ? 'код' : 'kod'}
+                </span>
+                <span className="mt-[3px] block text-[14px] font-black tabular-nums tracking-[0.14em]">
+                  48213
+                </span>
+              </span>
+            </div>
+          </div>
 
-        {/* Yulduzcha */}
-        <span className="absolute right-[10%] top-[12%] text-[15px] text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]">
-          ✦
-        </span>
+          {/* suzuvchi ikonalar */}
+          <span className="hero-float-slow absolute -right-[22%] bottom-[10%] grid h-7 w-7 place-items-center rounded-full bg-white shadow-[0_8px_20px_rgba(0,0,0,0.35)]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brands/whatsapp.svg" alt="" className="h-4 w-4" />
+          </span>
+          <span className="absolute -right-[16%] -top-[6%] text-[16px] text-amber-300 drop-shadow-[0_0_10px_rgba(251,191,36,0.9)]">
+            ✦
+          </span>
+          <span className="absolute -left-[22%] bottom-[2%] text-[10px] text-sky-200/80">✦</span>
+        </div>
       </div>
     </div>
   );
