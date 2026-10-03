@@ -10,6 +10,9 @@ import { cn } from '@/lib/cn';
  * Do'kon bannerlari (admin → Bannerlar). Bir nechta bo'lsa — surib
  * almashtiriladi va 5 soniyada o'zi aylanadi. Banner bo'lmasa joy egallamaydi.
  */
+/** Slaydlar orasidagi oraliq (px) — yonidagi slayd chekkasi ko'rinib qolmasligi uchun. */
+const GAP = 12;
+
 export function BannerCarousel({
   placement,
   onOpenService,
@@ -42,8 +45,9 @@ export function BannerCarousel({
     const t = setInterval(() => {
       const el = track.current;
       if (!el) return;
-      const next = (Math.round(el.scrollLeft / el.clientWidth) + 1) % count;
-      el.scrollTo({ left: next * el.clientWidth, behavior: 'smooth' });
+      const step = el.clientWidth + GAP;
+      const next = (Math.round(el.scrollLeft / step) + 1) % count;
+      el.scrollTo({ left: next * step, behavior: 'smooth' });
     }, 5000);
     return () => clearInterval(t);
   }, [count]);
@@ -64,14 +68,15 @@ export function BannerCarousel({
         ref={track}
         onScroll={(e) => {
           const el = e.currentTarget;
-          setActive(Math.round(el.scrollLeft / el.clientWidth));
+          setActive(Math.round(el.scrollLeft / (el.clientWidth + GAP)));
         }}
-        className="flex snap-x snap-mandatory overflow-x-auto rounded-3xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{ gap: GAP }}
+        className="flex snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {leading && (
           <div
             style={{ aspectRatio: ratio }}
-            className="relative w-full shrink-0 snap-center overflow-hidden"
+            className="relative w-full shrink-0 snap-center overflow-hidden rounded-3xl"
           >
             {leading}
           </div>
@@ -82,7 +87,7 @@ export function BannerCarousel({
             type="button"
             onClick={() => click(b)}
             style={{ aspectRatio: ratio }}
-            className="relative w-full shrink-0 snap-center overflow-hidden bg-[#0b1530]"
+            className="relative w-full shrink-0 snap-center overflow-hidden rounded-3xl bg-[#0b1530]"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img

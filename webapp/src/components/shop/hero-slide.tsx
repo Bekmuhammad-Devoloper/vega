@@ -96,7 +96,7 @@ export function HeroSlide({ locale }: { locale: Locale }) {
           </div>
 
           {/* suzuvchi ikonalar */}
-          <span className="hero-float-slow absolute -right-[22%] bottom-[10%] grid h-7 w-7 place-items-center rounded-full bg-white shadow-[0_8px_20px_rgba(0,0,0,0.35)]">
+          <span className="hero-float-slow absolute -right-[8%] bottom-[6%] grid h-7 w-7 place-items-center rounded-full bg-white shadow-[0_8px_20px_rgba(0,0,0,0.35)]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/brands/whatsapp.svg" alt="" className="h-4 w-4" />
           </span>
