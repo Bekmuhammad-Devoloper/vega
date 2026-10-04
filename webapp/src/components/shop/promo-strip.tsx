@@ -75,60 +75,60 @@ export function PromoStrip({ locale }: { locale: Locale }) {
               type="button"
               onClick={() => copy(p.code)}
               className={cn(
-                'relative flex h-[60px] shrink-0 snap-start overflow-hidden rounded-2xl bg-white text-left ring-1 ring-orange-100 shadow-[0_4px_14px_-6px_rgba(234,88,12,0.35)] transition-transform active:scale-[0.985]',
-                single ? 'w-full' : 'w-[84%]',
+                'relative flex h-16 shrink-0 snap-start overflow-hidden rounded-[18px] bg-gradient-to-r from-orange-50 via-white to-white text-left ring-1 ring-orange-200/70 shadow-[0_6px_18px_-8px_rgba(234,88,12,0.45)] transition-transform active:scale-[0.985]',
+                single ? 'w-full' : 'w-[86%]',
               )}
             >
               {/* Chap: chegirma */}
-              <div className="relative flex w-[34%] shrink-0 items-center gap-2 overflow-hidden bg-gradient-to-br from-amber-400 via-orange-500 to-rose-500 pl-3 pr-2 text-white">
-                <div className="pointer-events-none absolute -left-4 -top-5 h-12 w-12 rounded-full bg-white/20" />
-                <span className="relative grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/20 ring-1 ring-white/30">
-                  <Gift size={14} />
+              <div className="relative flex w-[33%] shrink-0 flex-col justify-center overflow-hidden bg-[linear-gradient(135deg,#FBBF24_0%,#F97316_45%,#E11D48_100%)] pl-3.5 pr-1 text-white">
+                <div className="pointer-events-none absolute -right-3 -top-6 h-14 w-14 rounded-full bg-white/15" />
+                <div className="pointer-events-none absolute -bottom-8 -left-4 h-14 w-14 rounded-full bg-white/10" />
+                <div className="promo-shine pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/35 to-transparent" />
+                <span className="relative inline-flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-[0.14em] text-white/85">
+                  <Gift size={10} strokeWidth={2.5} />
+                  {ru ? 'Скидка' : 'Chegirma'}
                 </span>
-                <span className="relative min-w-0 leading-none">
-                  <span className="block truncate text-[16px] font-black tabular-nums tracking-tight">
-                    −{amount}
+                <span className="relative mt-1 flex items-baseline gap-1 leading-none">
+                  <span className="truncate text-[19px] font-black tabular-nums tracking-tight [text-shadow:0_1px_6px_rgba(0,0,0,0.18)]">
+                    {amount}
                   </span>
-                  <span className="mt-[3px] block text-[9.5px] font-bold uppercase tracking-wide text-white/85">
-                    {unit === '%' ? (ru ? '% скидка' : '% chegirma') : unit}
-                  </span>
+                  <span className="text-[10px] font-bold">{unit}</span>
                 </span>
               </div>
 
               {/* Kesik chiziq + teshiklar */}
               <div className="relative w-0">
-                <span className="absolute -left-2 -top-2 h-4 w-4 rounded-full bg-[var(--color-bg)] ring-1 ring-orange-100" />
-                <span className="absolute -bottom-2 -left-2 h-4 w-4 rounded-full bg-[var(--color-bg)] ring-1 ring-orange-100" />
-                <span className="absolute inset-y-2.5 left-0 border-l-[1.5px] border-dashed border-orange-200" />
+                <span className="absolute -left-[7px] -top-[7px] h-3.5 w-3.5 rounded-full bg-[var(--color-bg)]" />
+                <span className="absolute -bottom-[7px] -left-[7px] h-3.5 w-3.5 rounded-full bg-[var(--color-bg)]" />
+                <span className="absolute inset-y-2.5 -left-px border-l-2 border-dotted border-orange-300/80" />
               </div>
 
               {/* O'ng: kod */}
-              <div className="flex min-w-0 flex-1 items-center gap-2 pl-3.5 pr-2.5">
+              <div className="flex min-w-0 flex-1 items-center gap-2.5 pl-4 pr-3">
                 <div className="min-w-0 flex-1 leading-none">
-                  <p className="truncate font-mono text-[16px] font-black tracking-[0.16em] text-[var(--color-text)]">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-orange-500/80">
+                    {ru ? 'Промокод' : 'Promokod'}
+                  </p>
+                  <p className="mt-1 truncate font-mono text-[17px] font-black tracking-[0.18em] text-[var(--color-text)]">
                     {p.code}
                   </p>
-                  <p className="mt-1 flex items-center gap-1 truncate text-[10.5px] text-[var(--color-text-muted)]">
-                    {until ? (
-                      <>
-                        <Clock size={10} className="shrink-0" />
-                        {until}
-                      </>
-                    ) : ru ? (
-                      'Промокод'
-                    ) : (
-                      'Promokod'
-                    )}
-                  </p>
+                  {until && (
+                    <p className="mt-1 flex items-center gap-1 truncate text-[10px] text-[var(--color-text-muted)]">
+                      <Clock size={10} className="shrink-0" />
+                      {until}
+                    </p>
+                  )}
                 </div>
                 <span
-                  aria-label={ru ? 'Копировать' : 'Nusxalash'}
                   className={cn(
-                    'grid h-8 w-8 shrink-0 place-items-center rounded-full transition-colors',
-                    isCopied ? 'bg-emerald-500 text-white' : 'bg-orange-50 text-orange-600',
+                    'inline-flex h-8 shrink-0 items-center gap-1 rounded-xl px-2.5 text-[11px] font-bold text-white transition-all',
+                    isCopied
+                      ? 'bg-emerald-500 shadow-[0_4px_10px_-2px_rgba(16,185,129,0.5)]'
+                      : 'bg-gradient-to-br from-orange-500 to-rose-500 shadow-[0_4px_10px_-2px_rgba(234,88,12,0.5)]',
                   )}
                 >
-                  {isCopied ? <Check size={15} strokeWidth={3} /> : <Copy size={14} />}
+                  {isCopied ? <Check size={13} strokeWidth={3} /> : <Copy size={12} strokeWidth={2.5} />}
+                  {isCopied ? (ru ? 'Готово' : 'Olindi') : ru ? 'Взять' : 'Olish'}
                 </span>
               </div>
             </button>
