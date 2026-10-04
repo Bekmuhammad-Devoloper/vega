@@ -499,6 +499,7 @@ export const apiCryptoOffers = () => api<CryptoOffer[]>('/admin/crypto/offers');
 export const apiUpsertCryptoOffer = (body: {
   asset: CryptoAsset;
   pricePerUnit: number;
+  markupPerUnit?: number;
   minAmount: number;
   maxAmount: number;
   networks: string[];

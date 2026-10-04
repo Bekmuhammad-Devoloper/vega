@@ -214,11 +214,20 @@ function AssetCard({
   const [price, setPrice] = useState(() =>
     offer ? formatMoneyInput(Number(offer.pricePerUnit)) : '',
   );
+  const [markup, setMarkup] = useState(() =>
+    formatMoneyInput(offer ? Number(offer.markupPerUnit ?? 1000) : 1000) || '0',
+  );
   const [min, setMin] = useState(() => (offer ? String(Number(offer.minAmount)) : ''));
   const [max, setMax] = useState(() => (offer ? String(Number(offer.maxAmount)) : ''));
   const [nets, setNets] = useState<string[]>(() => offer?.networks ?? []);
 
   const priceNum = parseMoneyInput(price);
+  const markupNum = parseMoneyInput(markup);
+  const clientUnit = priceNum + markupNum;
+  // Wallet narxi kun davomida o'zgaradi — 24 soatdan eski narx haqida ogohlantiramiz.
+  const staleHours = offer?.updatedAt
+    ? Math.floor((Date.now() - new Date(offer.updatedAt).getTime()) / 3_600_000)
+    : 0;
   const minNum = Number(min.replace(',', '.'));
   const maxNum = Number(max.replace(',', '.'));
 
@@ -235,6 +244,7 @@ function AssetCard({
       apiUpsertCryptoOffer({
         asset,
         pricePerUnit: priceNum,
+        markupPerUnit: markupNum,
         minAmount: minNum,
         maxAmount: maxNum,
         networks: nets,
@@ -253,7 +263,7 @@ function AssetCard({
     <Card>
       <CardHeader
         title={asset}
-        subtitle={`1 ${asset} uchun mijoz to'laydigan narx`}
+        subtitle={`Mijoz narxi = Wallet narxi + ustama (1 ${asset} uchun)`}
         action={
           offer ? (
             <Badge tone="green">Sotuvda</Badge>
@@ -263,14 +273,50 @@ function AssetCard({
         }
       />
       <CardBody className="space-y-3">
-        <Field label={`1 ${asset} narxi (so'm)`}>
-          <Input
-            inputMode="numeric"
-            value={price}
-            onChange={(e) => setPrice(formatMoneyInput(parseMoneyInput(e.target.value)))}
-            placeholder="45 000"
-          />
-        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field
+            label={`Wallet narxi (1 ${asset})`}
+            hint="@wallet → P2P → Sotib olish dagi eng arzon narx"
+          >
+            <Input
+              inputMode="numeric"
+              value={price}
+              onChange={(e) => setPrice(formatMoneyInput(parseMoneyInput(e.target.value)))}
+              placeholder={asset === 'TON' ? '19 500' : '12 700'}
+            />
+          </Field>
+          <Field label="Ustama (so'm)" hint={`Har 1 ${asset} dan foydangiz`}>
+            <Input
+              inputMode="numeric"
+              value={markup}
+              onChange={(e) =>
+                setMarkup(formatMoneyInput(parseMoneyInput(e.target.value)) || '0')
+              }
+              placeholder="1 000"
+            />
+          </Field>
+        </div>
+
+        {priceNum > 0 && (
+          <div className="flex items-center justify-between rounded-xl bg-[var(--color-primary)]/[0.06] px-3.5 py-2.5">
+            <span className="text-sm text-[var(--color-text-muted)]">
+              Mijozga 1 {asset}
+            </span>
+            <span className="text-base font-bold tabular-nums text-[var(--color-primary)]">
+              {formatMoney(clientUnit)}
+            </span>
+          </div>
+        )}
+
+        {offer && staleHours >= 24 && (
+          <div className="flex gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5">
+            <AlertTriangle size={15} className="mt-0.5 shrink-0 text-amber-600" />
+            <p className="text-xs leading-relaxed text-amber-800">
+              Wallet narxi <b>{Math.floor(staleHours / 24)} kun</b> oldin kiritilgan. Narx
+              o&apos;zgargan bo&apos;lishi mumkin — Wallet&apos;dagi joriy narxni kiriting.
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <Field label={`Eng kam (${asset})`}>
@@ -320,7 +366,7 @@ function AssetCard({
           <p className="text-xs text-[var(--color-text-muted)]">
             Eng kichik buyurtma: {minNum} {asset} ={' '}
             <b className="text-[var(--color-text)]">
-              {formatMoney(Math.round((priceNum * minNum) / 100) * 100)}
+              {formatMoney(Math.round((clientUnit * minNum) / 100) * 100)}
             </b>
           </p>
         )}

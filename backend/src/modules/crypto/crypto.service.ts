@@ -44,7 +44,10 @@ const ADDRESS_RULES: Record<string, { re: RegExp; hint: string }> = {
 
 export interface UpsertCryptoOfferInput {
   asset: CryptoAsset;
+  /** Tan narxi (Wallet P2P'dagi 1 birlik narxi). */
   pricePerUnit: number;
+  /** 1 birlikka ustama; berilmasa 1 000 so'm. */
+  markupPerUnit?: number;
   minAmount: number;
   maxAmount: number;
   networks: string[];
@@ -58,6 +61,14 @@ export class CryptoService {
     private readonly prisma: PrismaService,
     private readonly catalog: CatalogService,
   ) {}
+
+  /** Mijoz to'laydigan 1 birlik narxi: tan narxi + ustama. */
+  static unitPrice(o: {
+    pricePerUnit: Prisma.Decimal | number;
+    markupPerUnit: Prisma.Decimal | number;
+  }): number {
+    return Number(o.pricePerUnit) + Number(o.markupPerUnit);
+  }
 
   /** So'm summasini 100 gacha yaxlitlaydi — narxlar butun ko'rinsin. */
   private roundUzs(n: number): number {
@@ -81,7 +92,7 @@ export class CryptoService {
       cryptoEnabled: true,
       offers: offers.map((o) => ({
         asset: o.asset,
-        pricePerUnit: Number(o.pricePerUnit),
+        pricePerUnit: CryptoService.unitPrice(o),
         minAmount: Number(o.minAmount),
         maxAmount: Number(o.maxAmount),
         networks: this.readNetworks(o.networks),
@@ -160,7 +171,7 @@ export class CryptoService {
       throw new BadRequestException(`Manzil noto'g'ri — ${rule.hint}`);
     }
 
-    const pricePerUnit = Number(offer.pricePerUnit);
+    const pricePerUnit = CryptoService.unitPrice(offer);
     const totalPrice = this.roundUzs(amount * pricePerUnit);
     if (totalPrice <= 0) throw new BadRequestException("Narx noto'g'ri");
 
@@ -215,6 +226,10 @@ export class CryptoService {
     if (dto.pricePerUnit <= 0) {
       throw new BadRequestException('Narx 0 dan katta bo\'lishi kerak');
     }
+    const markupPerUnit = dto.markupPerUnit ?? 1000;
+    if (!Number.isFinite(markupPerUnit) || markupPerUnit < 0) {
+      throw new BadRequestException("Ustama manfiy bo'lmasligi kerak");
+    }
     if (dto.minAmount <= 0 || dto.maxAmount <= 0) {
       throw new BadRequestException("Chegaralar 0 dan katta bo'lishi kerak");
     }
@@ -239,6 +254,7 @@ export class CryptoService {
       where: { tenantId_asset: { tenantId, asset: dto.asset } },
       update: {
         pricePerUnit: dto.pricePerUnit,
+        markupPerUnit,
         minAmount: dto.minAmount,
         maxAmount: dto.maxAmount,
         networks: networks as unknown as Prisma.InputJsonValue,
@@ -248,6 +264,7 @@ export class CryptoService {
         tenantId,
         asset: dto.asset,
         pricePerUnit: dto.pricePerUnit,
+        markupPerUnit,
         minAmount: dto.minAmount,
         maxAmount: dto.maxAmount,
         networks: networks as unknown as Prisma.InputJsonValue,

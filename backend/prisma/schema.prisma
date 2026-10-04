@@ -1072,8 +1072,10 @@ model CryptoOffer {
   tenant   Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   asset    CryptoAsset
 
-  /// 1 TON / 1 USDT uchun mijoz to'laydigan narx (so'm).
+  /// 1 TON / 1 USDT tan narxi (so'm) — sotuvchi o'zi oladigan narx (Wallet P2P).
   pricePerUnit Decimal @db.Decimal(14, 2)
+  /// Har 1 birlikka qo'shiladigan ustama (so'm). Mijoz narxi = pricePerUnit + markupPerUnit.
+  markupPerUnit Decimal @default(1000) @db.Decimal(14, 2)
   /// Bitta buyurtmadagi eng kam va eng ko'p miqdor (aktiv birligida).
   minAmount    Decimal @db.Decimal(18, 8)
   maxAmount    Decimal @db.Decimal(18, 8)

@@ -55,14 +55,31 @@ export function CryptoSection() {
                 }}
                 className="flex w-full items-center gap-3 rounded-2xl border border-[var(--color-border)] bg-white p-3.5 text-left transition-transform active:scale-[0.99]"
               >
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[var(--color-bg)] text-sm font-bold">
-                  {o.asset === 'TON' ? '💎' : '₮'}
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[var(--color-bg)]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`/brands/${o.asset === 'TON' ? 'ton' : 'usdt'}.svg`}
+                    alt=""
+                    className="h-8 w-8"
+                  />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-bold">{o.asset}</p>
-                  <p className="mt-0.5 text-xs text-[var(--color-text-muted)]">
-                    {o.networks.join(' · ')}
+                  <p className="truncate text-[15px] font-bold">
+                    {o.asset}{' '}
+                    <span className="font-medium text-[var(--color-text-muted)]">
+                      {o.asset === 'TON' ? 'Toncoin' : 'Tether'}
+                    </span>
                   </p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {o.networks.map((n) => (
+                      <span
+                        key={n}
+                        className="rounded-md bg-[var(--color-bg)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-text-muted)]"
+                      >
+                        {n}
+                      </span>
+                    ))}
+                  </div>
                 </div>
                 <div className="shrink-0 text-right">
                   <p className="text-[10px] uppercase leading-none tracking-wide text-[var(--color-text-muted)]">

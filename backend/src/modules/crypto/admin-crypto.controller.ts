@@ -30,6 +30,7 @@ import { ASSET_NETWORKS, CryptoService } from './crypto.service';
 class UpsertCryptoOfferDto {
   @IsEnum(CryptoAsset) asset!: CryptoAsset;
   @Type(() => Number) @IsNumber() @Min(0) pricePerUnit!: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) markupPerUnit?: number;
   @Type(() => Number) @IsNumber() @Min(0) minAmount!: number;
   @Type(() => Number) @IsNumber() @Min(0) maxAmount!: number;
   @IsArray() @ArrayNotEmpty() @ArrayMaxSize(8) @IsString({ each: true })

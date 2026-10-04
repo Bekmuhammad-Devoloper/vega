@@ -179,11 +179,15 @@ export type CryptoOrderStatus = 'PENDING' | 'FULFILLED' | 'CANCELLED';
 export interface CryptoOffer {
   id: string;
   asset: CryptoAsset;
+  /** Tan narxi — Wallet P2P'dagi 1 birlik narxi. */
   pricePerUnit: Money;
+  /** 1 birlikka ustama; mijoz narxi = pricePerUnit + markupPerUnit. */
+  markupPerUnit: Money;
   minAmount: Money;
   maxAmount: Money;
   networks: string[];
   isActive: boolean;
+  updatedAt: string;
 }
 
 export interface CryptoOrder {
